@@ -272,6 +272,9 @@ class tnpConfig(object):
                 if ".replace" in key:
                     key_=key.split(".",1)[0]
                     setattr(out,key_,getattr(out,key_).replace(modifier[key][0],modifier[key][1]))
+                elif ".add" in key:
+                    key_=key.split(".",1)[0]
+                    setattr(out,key_,getattr(out,key_)+modifier[key])
                 else:
                     setattr(out,key,modifier[key])
         for key in kwargs:

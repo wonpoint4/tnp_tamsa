@@ -19,20 +19,20 @@ samples={
 ############## binning ################
 binnings={
     'Mu8':[              ### For ID or Mu8
-        { 'var' : 'probe_eta' , 'type': 'float', 'bins': [round(i/10.,2) for i in range(-24,25)] },
-        { 'var' : 'probe_pt' , 'type': 'float', 'bins': [10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 120] },
+        { 'var' : 'probe_eta' , 'type': 'float', 'bins': [round(i/10.,2) for i in range(-24,25)], 'title':'#eta' },
+        { 'var' : 'probe_pt' , 'type': 'float', 'bins': [10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 120], 'title':'p_{T} [GeV]' },
     ],
     'Mu17':[            ### For Mu17
-        { 'var' : 'probe_eta' , 'type': 'float', 'bins': [round(i/10.,2) for i in range(-24,25)] },
-        { 'var' : 'probe_pt' , 'type': 'float', 'bins': [14, 16, 18, 20, 25, 30, 35, 40, 45, 50, 60, 120] },
+        { 'var' : 'probe_eta' , 'type': 'float', 'bins': [round(i/10.,2) for i in range(-24,25)], 'title':'#eta' },
+        { 'var' : 'probe_pt' , 'type': 'float', 'bins': [14, 16, 18, 20, 25, 30, 35, 40, 45, 50, 60, 120], 'title':'p_{T} [GeV]' },
     ],
     'IsoMu24':[            ### For IsoMu24
-        { 'var' : 'probe_eta' , 'type': 'float', 'bins': [round(i/10.,2) for i in range(-24,25)] },
-        { 'var' : 'probe_pt' , 'type': 'float', 'bins': [20, 22, 24, 26, 28, 30, 35, 40, 45, 50, 60, 120] },
+        { 'var' : 'probe_eta' , 'type': 'float', 'bins': [round(i/10.,2) for i in range(-24,25)], 'title':'#eta' },
+        { 'var' : 'probe_pt' , 'type': 'float', 'bins': [20, 22, 24, 26, 28, 30, 35, 40, 45, 50, 60, 120], 'title':'p_{T} [GeV]' },
     ],
     'IsoMu27':[          ### For IsoMu27 (Regacy 2017)
-        { 'var' : 'eta' , 'type': 'float', 'bins': [round(i/10.,2) for i in range(-24,25)] },
-        { 'var' : 'pt' , 'type': 'float', 'bins': [29, 32, 35, 40, 45, 50, 60, 120] },
+        { 'var' : 'probe_eta' , 'type': 'float', 'bins': [round(i/10.,2) for i in range(-24,25)], 'title':'#eta' },
+        { 'var' : 'probe_pt' , 'type': 'float', 'bins': [20, 22, 24, 26, 28, 30, 35, 40, 45, 50, 60, 120], 'title':'p_{T} [GeV]' },
     ],
 }
 ############### Expr ################
@@ -53,7 +53,7 @@ tag_PFIso = '(tag_pfIso04_charged + max(0, tag_pfIso04_neutral+tag_pfIso04_photo
 config_id=tnpConfig(
     data=samples['data2016a'],
     sim=samples['mi2016a'],
-    sim_weight='genWeight',
+    sim_weight='(genWeight/2358.)',
     sim_genmatching='tag_isMatchedGen && probe_isMatchedGen',
     sim_genmass="genMass",
     tree='muon/Events',
@@ -67,20 +67,20 @@ config_id=tnpConfig(
     fit_parameter= [
         "HistPdf::sigPhysPass(x,histPass_genmatching_genmass,2)",
         "HistPdf::sigPhysFail(x,histFail_genmatching_genmass,2)",
-        "Gaussian::sigResPass(x,meanGaussP[0.0,-5.0,5.0],sigmaGaussP[0.8, 0.5,3.5])",
-        "Gaussian::sigResFail(x,meanGaussF[0.0, -5.0,5.0],sigmaGaussF[0.7, 0.5,3.5])",
+        "Gaussian::sigResPass(x,meanGaussP[0.0,-5.0,5.0],sigmaGaussP[0.8,0.5,3.5])",
+        "Gaussian::sigResFail(x,meanGaussF[0.0,-5.0,5.0],sigmaGaussF[0.7,0.5,3.5])",
         "FCONV::sigPass(x, sigPhysPass , sigResPass)",
         "FCONV::sigFail(x, sigPhysFail , sigResFail)",
         "Exponential::bkgPass(x, aExpoP[-0.1, -1,0.1])",
-        "Exponential::bkgFail(x, aExpoF[-0.1, -1,0.1])",
+        "Exponential::bkgFail(x, aExpoF[-0.3, -1,0.1])",
     ],
     fit_range=(70,130),
-    count_range=(81,101),
+    #count_range=(81,101),
     systematic=[
-        [{'fit_range':(60,130),'count_range':(76,106)},{'fit_range':(70,120),'count_range':(86,96)}],
-        [{'expr.replace':(tag_PFIso+' < 0.15',tag_PFIso+' < 0.20')},{'expr.replace':(tag_PFIso+' < 0.15',tag_PFIso+' < 0.10')}],
-        [{'sim.replace':('DYJetsToMuMu_M50_powhegMiNNLO.root','DYJetsToLL_M50_MadgraphMLM.root'),'sim.replace':('DYJetsToMuMu_M50_massWgtFix_powhegMiNNLO.root','DYJetsToLL_M50_MadgraphMLM.root')}],
-        [{'hist_nbins':60},{'hist_nbins':100}],
+        [{'title':'massbroad','fit_range':(60,130),'count_range':(76,106)},{'title':'massnarrow','fit_range':(70,120),'count_range':(86,96)}],
+        [{'title':'massbin50','hist_nbins':60},{'title':'massbin75','hist_nbins':100}],
+        [{'title':'tagiso010','expr.replace':(tag_PFIso+' < 0.15',tag_PFIso+' < 0.10')},{'title':'tagiso020','expr.replace':(tag_PFIso+' < 0.15',tag_PFIso+' < 0.20')}],
+        [{'title':'altsig','sim.replace':('DYJetsToMuMu_M50_powhegMiNNLO.root','DYJetsToLL_M50_MadgraphMLM.root'),'sim.replace':('DYJetsToMuMu_M50_massWgtFix_powhegMiNNLO.root','DYJetsToLL_M50_MadgraphMLM.root'),'sim_weight.replace':('(genWeight/2358.)','genWeight')}],
     ]
 )
 
@@ -118,8 +118,8 @@ Configs['2016a_Mu8_Plus']=config_trigger.clone(
 ## cloning for 2016b
 Configs_2016b={}
 for key in Configs:
-    Configs_era[key.replace("2016a_","2016b_")]=Configs[key].clone(data=samples["data2016b"],sim=samples["mi2016b"])
-Configs.update(Configs_era)
+    Configs_2016b[key.replace("2016a_","2016b_")]=Configs[key].clone(data=samples["data2016b"],sim=samples["mi2016b"])
+Configs.update(Configs_2016b)
 
 ## cloning for minus
 Configs_minus={}
