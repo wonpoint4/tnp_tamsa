@@ -223,7 +223,7 @@ def GetSystematicPlot(filename,axis="x",ibin=None,ymin=None):
                     hist.SetBinContent(ib,val-1)
             draw=False
             for ib in range(hist.GetNcells()):
-                if hist.GetBinContent(ib)!=0. or hist.GetBinError(ib)!=0.:
+                if hist.GetBinContent(ib)!=0. or hist.GetBinError(ib)!=0. or not GetAxisParent():
                     draw=True
                     break
             if not draw: continue
@@ -395,7 +395,7 @@ def GetEfficiencyPlot(filename,axis="y",ibin=None):
             hist.Draw("hist e")
         
     GetAxisParent().GetYaxis().SetTitle("Efficiency")
-    GetAxisParent().GetYaxis().SetRangeUser(0.11,1.04)
+    GetAxisParent().GetYaxis().SetRangeUser(0.01,1.04)
     GetAxisParent().SetTitleSize(0.04/min(ROOT.gPad.GetHNDC(),ROOT.gPad.GetWNDC()),"XYZ")
     GetAxisParent().SetTitleOffset(2*min(ROOT.gPad.GetHNDC(),ROOT.gPad.GetWNDC()),"Y")
     GetAxisParent().SetLabelSize(0.04/min(ROOT.gPad.GetHNDC(),ROOT.gPad.GetWNDC()),"XYZ")
@@ -437,7 +437,8 @@ def GetEfficiencyPlot(filename,axis="y",ibin=None):
     GetAxisParent(c.GetPad(2)).SetTitle("")
     c.Update()
     c.Modified()
-    setattr(c,"hists",hists+sfs)
+    setattr(c,"hists",hists)
+    setattr(c,"sfs",sfs)
 
     return c
     
@@ -486,6 +487,72 @@ def SavePlots(filename):
     SaveSystematicPlots(filename)
     return
 
+def MergeCanvases(canvases):
+    rt=None
+    for c in canvases:
+        if rt is None:
+            rt=c
+            continue
+        for h in c.hists:
+            h=h.Clone()
+            rt.cd(2)
+            h.Draw("same")
+            rt.hists+=[h]
+            rt.legend.AddEntry(h)
+        for sf in c.sfs:
+            sf=sf.Clone()
+            rt.cd(3)
+            sf.Draw("same")
+            rt.sfs+=[sf]
+    return rt
+    
+def CompareEfficiencyPlots(filename1,filename2):
+    Setup()
+    tempbatch=ROOT.gROOT.IsBatch()
+    tempignorelevel=ROOT.gErrorIgnoreLevel
+    ROOT.gROOT.SetBatch(True)
+    ROOT.gErrorIgnoreLevel=ROOT.kWarning
+
+    h1=EfficiencyHist(filename1+":data").MakeTH()
+    if not h1:
+        print "No data in "+filename1
+        return
+    h2=EfficiencyHist(filename2+":data").MakeTH()
+    if not h2:
+        print "No data in "+filename2
+        return
+    h=h1
+    plotdir="compare"
+    if not os.path.exists(plotdir):
+        os.makedirs(plotdir)
+    for i in range(1,h.GetNbinsY()+1):
+        c=MergeCanvases([GetEfficiencyPlot(filename1,axis="x",ibin=i),GetEfficiencyPlot(filename2,axis="x",ibin=i)])
+        c.SaveAs(plotdir+"/eff_x{}.pdf".format(i))
+        c.SaveAs(plotdir+"/eff_x{}.png".format(i))
+    c=MergeCanvases([GetEfficiencyPlot(filename1,axis="x"),GetEfficiencyPlot(filename2,axis="x")])
+    c.SaveAs(plotdir+"/eff_x.pdf")
+    c.SaveAs(plotdir+"/eff_x.png")
+    c=MergeCanvases([GetEfficiencyPlot(filename1,axis="x",ibin=[None,h.GetYaxis().FindBin(30),h.GetYaxis().FindBin(90)]),
+                     GetEfficiencyPlot(filename2,axis="x",ibin=[None,h.GetYaxis().FindBin(30),h.GetYaxis().FindBin(90)])])
+    c.SaveAs(plotdir+"/eff_xx.pdf")
+    c.SaveAs(plotdir+"/eff_xx.png")
+        
+    for i in range(1,h.GetNbinsX()+1):
+        c=MergeCanvases([GetEfficiencyPlot(filename1,axis="y",ibin=i),GetEfficiencyPlot(filename2,axis="y",ibin=i)])
+        c.SaveAs(plotdir+"/eff_y{}.pdf".format(i))
+        c.SaveAs(plotdir+"/eff_y{}.png".format(i))
+    c=MergeCanvases([GetEfficiencyPlot(filename1,axis="y"),GetEfficiencyPlot(filename2,axis="y")])
+    c.SaveAs(plotdir+"/eff_y.pdf")
+    c.SaveAs(plotdir+"/eff_y.png")
+    c=MergeCanvases([GetEfficiencyPlot(filename1,axis="y",ibin=[None,h.GetXaxis().FindBin(0.0),h.GetXaxis().FindBin(2.39)]),
+                     GetEfficiencyPlot(filename2,axis="y",ibin=[None,h.GetXaxis().FindBin(0.0),h.GetXaxis().FindBin(2.39)])])
+    c.SaveAs(plotdir+"/eff_yy.pdf")
+    c.SaveAs(plotdir+"/eff_yy.png")
+    
+    ROOT.gROOT.SetBatch(tempbatch)
+    ROOT.gErrorIgnoreLevel=tempignorelevel
+    return
+
 def PrintEfficiency(path):
     data=EfficiencyHist(path+":data")
     sim=EfficiencyHist(path+":sim")
@@ -496,5 +563,8 @@ def PrintEfficiency(path):
     return
     
 if __name__=="__main__":
-    SavePlots(sys.argv[1])
+    if len(sys.argv)==2:
+        SavePlots(sys.argv[1])
+    if len(sys.argv)==3:
+        CompareEfficiencyPlots(sys.argv[1],sys.argv[2])
     exit()

@@ -1,5 +1,6 @@
 import os,copy
 from array import array
+from bisect import bisect
 import random as rd
 import ROOT
 
@@ -81,14 +82,10 @@ class tnpConfig(object):
             ### first map nD bins in a single list
             for iv in range(len(bins)):
                 var = bins[iv]['var']
-                if not bins[iv].has_key('type') or not bins[iv].has_key('bins'):
+                if not bins[iv].has_key('bins'):
                     print 'bins is not complete for var %s' % var
                     return None
-                nb1D = 1
-                if   bins[iv]['type'] == 'float' :
-                    nb1D = len(bins[iv]['bins'])-1
-                elif bins[iv]['type'] == 'int' :
-                    nb1D = len(bins[iv]['bins'])
+                nb1D = len(bins[iv]['bins'])-1
 
                 listOfIndexNew = []
                 for ib_v in range(nb1D):
@@ -113,27 +110,15 @@ class tnpConfig(object):
                 for iv in range(len(ix)):
                     var     = bins[iv]['var']
                     bins1D  = bins[iv]['bins']
-                    varType = bins[iv]['type']
-                    if varType == 'float' :
-                        if binCut is None: 
-                            binCut   = '(%s >= %f && %s < %f)' % (var,bins1D[ix[iv]],var,bins1D[ix[iv]+1])
-                            binTitle = '%1.3f < %s < %1.3f'  % (bins1D[ix[iv]],var,bins1D[ix[iv]+1])
-                        else:
-                            binCut   = '%s * (%s >= %f && %s < %f)' % (binCut  ,var,bins1D[ix[iv]],var,bins1D[ix[iv]+1])
-                            binTitle = '%s; %1.3f < %s < %1.3f'    % (binTitle,bins1D[ix[iv]],var,bins1D[ix[iv]+1])
-                        binName  = '%s_%s_%1.2fTo%1.2f'  % (binName ,var.replace("/","_"),bins1D[ix[iv]],bins1D[ix[iv]+1])
-                        binVars[var] = { 'min': bins1D[ix[iv]], 'max': bins1D[ix[iv]+1]}
 
-
-                    if varType == 'int' :
-                        if binCut is None: 
-                            binCut   = '%s == %d' % (var,bins1D[ix[iv]])
-                            binTitle = '%s = %d'  % (var,bins1D[ix[iv]])
-                        else:
-                            binCut   = '%s && %s == %d' % (binCut,var,bins1D[ix[iv]])
-                            binTitle = '%s; %s = %d'    % (binTitle,var,bins1D[ix[iv]])
-                        binName  = '%s_%sEq%d' % (binName ,var,bins1D[ix[iv]])
-                        binVars[var] = { 'min': bins1D[ix[iv]], 'max': bins1D[ix[iv]]}
+                    if binCut is None: 
+                        binCut   = '(%s >= %f && %s < %f)' % (var,bins1D[ix[iv]],var,bins1D[ix[iv]+1])
+                        binTitle = '%1.3f < %s < %1.3f'  % (bins1D[ix[iv]],var,bins1D[ix[iv]+1])
+                    else:
+                        binCut   = '%s * (%s >= %f && %s < %f)' % (binCut  ,var,bins1D[ix[iv]],var,bins1D[ix[iv]+1])
+                        binTitle = '%s; %1.3f < %s < %1.3f'    % (binTitle,bins1D[ix[iv]],var,bins1D[ix[iv]+1])
+                    binName  = '%s_%s_%1.2fTo%1.2f'  % (binName ,var.replace("/","_"),bins1D[ix[iv]],bins1D[ix[iv]+1])
+                    binVars[var] = { 'min': bins1D[ix[iv]], 'max': bins1D[ix[iv]+1]}
 
                     binName = binName.replace('-','m')
                     binName = binName.replace('.','p')
@@ -145,9 +130,28 @@ class tnpConfig(object):
                 listOfVars.append(bins[iv]['var'])
             self.vars=listOfVars
             self.vartitles=[var['title'] if var.has_key("title") else var['var'] for var in bins]
+            self.axes=bins
             val=listOfBins
         super(tnpConfig,self).__setattr__(key,val)
         return
+
+    ## return global bin number. overflow/underflow will return None.
+    def find_bin(self,*args):
+        if len(args)==1 and type(args[0]) in [list,tuple]: vals=args[0]
+        else: vals=args
+        if len(vals)!=len(self.axes):
+            print "find_bin needs same number of argument with the number of axes (={})".format(len(axes))
+            exit(1)
+        local_ibin=[]
+        for ia in range(len(self.axes)):
+            this_ibin=bisect(self.axes[ia]['bins'],vals[ia])-1
+            if this_ibin<0: return None
+            if this_ibin>=len(self.axes[ia]['bins'])-1: return None
+            local_ibin+=[this_ibin]
+        for ia in range(len(self.axes)):
+            for ja in range(ia+1,len(self.axes)):
+                local_ibin[ja]*=len(self.axes[ia]['bins'])-1
+        return sum(local_ibin)
 
     def get_hist(self,ibin,isPass,genmatching=False,genmass=False,random=None):
         this_hist_file=self.path+"/"+self.hist_file

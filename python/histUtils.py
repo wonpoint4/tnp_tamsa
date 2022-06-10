@@ -226,22 +226,23 @@ def makePassFailHistograms( configs, njob, ijob ):
         for ic in range(len(configs)):
             expr=expr_formulars[ic].EvalInstance()
             if not expr: continue
-            for ib in range(len(bins)):
-                bincut=bin_formulars[ib].EvalInstance()
-                if not bincut: continue
-                for ih in range(len(hists[ic][ib])):
-                    weight = weight_formulars[ic][ib][ih].EvalInstance()
-                    if not weight: continue
-                    if math.isnan(weight):
-                        print 'Error: nan weight!!! continue'
-                        continue
-                    if math.isinf(weight):
-                        print 'Error: inf weight!!! continue'
-                        continue
-                    if hasattr(configs[ic],"maxweight") and abs(weight)>configs[ic].maxweight:
-                        weight=math.copysign(configs[ic].maxweight,weight)
-                    hists[ic][ib][ih].Fill(getattr(tree,xs[ic][ib][ih]),expr*bincut*weight)
-                break
+            vals=[]
+            for ia in range(len(configs[ic].axes)):
+                vals+=[getattr(tree,configs[ic].axes[ia]['var'])]
+            ib=configs[ic].find_bin(vals)
+            if ib is None: continue
+            for ih in range(len(hists[ic][ib])):
+                weight = weight_formulars[ic][ib][ih].EvalInstance()
+                if not weight: continue
+                if math.isnan(weight):
+                    print 'Error: nan weight!!! continue'
+                    continue
+                if math.isinf(weight):
+                    print 'Error: inf weight!!! continue'
+                    continue
+                if hasattr(configs[ic],"maxweight") and abs(weight)>configs[ic].maxweight:
+                    weight=math.copysign(configs[ic].maxweight,weight)
+                hists[ic][ib][ih].Fill(getattr(tree,xs[ic][ib][ih]),expr*weight)
 
     te=time.time()
     print(te-ts)
