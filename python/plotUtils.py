@@ -1,5 +1,5 @@
 import os,sys,copy,math
-import numpy
+import numpy,re
 import ROOT
 from efficiencyUtils import Efficiency,ScaleFactor,EfficiencyHist,ScaleFactorHist
 def Setup():
@@ -229,10 +229,9 @@ def GetSystematicPlot(filename,axis="x",ibin=None,ymin=None):
             if not draw: continue
 
             if GetAxisParent():
-                hist.Draw("same")
+                hist.Draw("same "+hist.GetOption())
             else:
                 hist.SetStats(0)
-                hist.SetTitle("")
                 hist.GetXaxis().SetMoreLogLabels()
                 hist.SetTitleSize(0.04/min(ROOT.gPad.GetHNDC(),ROOT.gPad.GetWNDC()),"X")
                 hist.SetLabelSize(0.04/min(ROOT.gPad.GetHNDC(),ROOT.gPad.GetWNDC()),"X")
@@ -289,6 +288,9 @@ def GetSystematicPlot(filename,axis="x",ibin=None,ymin=None):
 
     c.Update()
     c.Modified()
+    c.GetPad(1).FindObject("title").SetTextSize(-1)
+    c.GetPad(2).FindObject("title").SetTextSize(-1)
+    c.GetPad(3).FindObject("title").SetTextSize(-1)
     setattr(c,"hists",[h for hh in histss for h in hh])
     return c
 
@@ -326,7 +328,20 @@ def SaveSystematicPlots(filename):
     ROOT.gErrorIgnoreLevel=tempignorelevel
     return
 
-def GetEfficiencyPlot(filename,axis="y",ibin=None):
+def GetEfficiencyPlot(path,axis="y",ibin=None):
+    if ":" in path:
+        filename,suffix=path.split(":",1)
+        m=re.search(r"s([0-9]*)m([0-9]*)",suffix)
+        if m:
+            iset=int(m.group(1))
+            imem=int(m.group(2))
+        else:
+            print "Wrong suffix format",suffix
+            exit(1)
+    else:
+        filename=path
+        iset=None
+        imem=None
     ehdata2d=EfficiencyHist(filename+":data")
     ehsim2d=EfficiencyHist(filename+":sim")
 
@@ -339,13 +354,13 @@ def GetEfficiencyPlot(filename,axis="y",ibin=None):
     icolor=0
     for i in ibin:
         if axis=="x":
-            hdata=ehdata2d.ProjectionX(i,i).MakeTH()
-            hsim=ehsim2d.ProjectionX(i,i).MakeTH()
-            hsf=ScaleFactorHist(ehdata2d.ProjectionX(i,i),ehsim2d.ProjectionX(i,i)).MakeTH()
+            hdata=ehdata2d.ProjectionX(i,i).MakeTH(iset=iset,imem=imem)
+            hsim=ehsim2d.ProjectionX(i,i).MakeTH(iset=iset,imem=imem)
+            hsf=ScaleFactorHist(ehdata2d.ProjectionX(i,i),ehsim2d.ProjectionX(i,i)).MakeTH(iset=iset,imem=imem)
         elif axis=="y":
-            hdata=ehdata2d.ProjectionY(i,i).MakeTH()
-            hsim=ehsim2d.ProjectionY(i,i).MakeTH()
-            hsf=ScaleFactorHist(ehdata2d.ProjectionY(i,i),ehsim2d.ProjectionY(i,i)).MakeTH()
+            hdata=ehdata2d.ProjectionY(i,i).MakeTH(iset=iset,imem=imem)
+            hsim=ehsim2d.ProjectionY(i,i).MakeTH(iset=iset,imem=imem)
+            hsf=ScaleFactorHist(ehdata2d.ProjectionY(i,i),ehsim2d.ProjectionY(i,i)).MakeTH(iset=iset,imem=imem)
             
         if i is None:
             rangestring="average"
@@ -359,8 +374,11 @@ def GetEfficiencyPlot(filename,axis="y",ibin=None):
             elif axis=="y":
                 rangestring="{:.1f} < {} < {:.1f}".format(ehdata2d.hist.GetXaxis().GetBinLowEdge(i),ehdata2d.hist.GetXaxis().GetTitle().replace(" [GeV]",""),ehdata2d.hist.GetXaxis().GetBinUpEdge(i))
         hdata.SetTitle("data "+rangestring)
+        hdata.title="data "+rangestring
         hsim.SetTitle("sim "+rangestring)
+        hsim.title="sim "+rangestring
         hsf.SetTitle("sf "+rangestring)
+        hsf.title="sf "+rangestring
             
         hdata.SetLineColor(colors[icolor])
         hdata.SetMarkerColor(colors[icolor])
@@ -379,6 +397,7 @@ def GetEfficiencyPlot(filename,axis="y",ibin=None):
         icolor+=1
 
     c=ROOT.TCanvas()
+    c.SetTitle("")
     c.Divide(1,3)
 
     c.cd(2)
@@ -389,10 +408,11 @@ def GetEfficiencyPlot(filename,axis="y",ibin=None):
     if 2*hdata.GetBinWidth(hdata.GetXaxis().GetFirst())<hdata.GetBinWidth(hdata.GetXaxis().GetLast()):
         ROOT.gPad.SetLogx()
     for hist in hists:
+        hist.SetOption("hist e")
         if GetAxisParent(): 
-            hist.Draw("same hist e")
+            hist.Draw("same "+hist.GetOption())
         else: 
-            hist.Draw("hist e")
+            hist.Draw()
         
     GetAxisParent().GetYaxis().SetTitle("Efficiency")
     GetAxisParent().GetYaxis().SetRangeUser(0.01,1.04)
@@ -409,11 +429,12 @@ def GetEfficiencyPlot(filename,axis="y",ibin=None):
     if 2*hdata.GetBinWidth(hdata.GetXaxis().GetFirst())<hdata.GetBinWidth(hdata.GetXaxis().GetLast()):
         ROOT.gPad.SetLogx()
     for hist in sfs:
+        hist.SetOption("hist e")
         if GetAxisParent(): 
-            hist.Draw("same hist e")
+            hist.Draw("same "+hist.GetOption())
         else:
-            hist.Draw("hist e")
-    GetAxisParent().SetTitle("")
+            hist.Draw()
+ 
     GetAxisParent().GetXaxis().SetMoreLogLabels()
     GetAxisParent().GetYaxis().SetRangeUser(0.81,1.19)
     GetAxisParent().GetYaxis().SetNdivisions(205)
@@ -434,9 +455,12 @@ def GetEfficiencyPlot(filename,axis="y",ibin=None):
     leg.Draw()
     setattr(c,"legend",leg)
     
-    GetAxisParent(c.GetPad(2)).SetTitle("")
     c.Update()
     c.Modified()
+
+    c.GetPad(2).FindObject("title").SetTextSize(-1)
+    c.GetPad(3).FindObject("title").SetTextSize(-1)
+
     setattr(c,"hists",hists)
     setattr(c,"sfs",sfs)
 
@@ -489,30 +513,49 @@ def SavePlots(filename):
 
 def MergeCanvases(canvases):
     rt=None
-    for c in canvases:
+    for i in range(len(canvases)):
+        c=canvases[i]
         if rt is None:
             rt=c
+            for entry in rt.legend.GetListOfPrimitives():
+                if c.GetTitle()!="":
+                    entry.SetLabel(entry.GetLabel()+", "+c.GetTitle())
             continue
         for h in c.hists:
             h=h.Clone()
+            h.SetLineColor(i+1)
+            h.SetMarkerColor(i+1)
             rt.cd(2)
-            h.Draw("same")
+            h.Draw("same "+h.GetOption())
             rt.hists+=[h]
-            rt.legend.AddEntry(h)
+            rt.legend.AddEntry(h,h.GetTitle()+", "+c.GetTitle(),"l")
         for sf in c.sfs:
             sf=sf.Clone()
+            sf.SetLineColor(i+1)
+            sf.SetMarkerColor(i+1)
             rt.cd(3)
-            sf.Draw("same")
+            sf.Draw("same "+h.GetOption())
             rt.sfs+=[sf]
+    rt.Update()
+    rt.Modified()
     return rt
     
-def CompareEfficiencyPlots(filename1,filename2):
+def CompareEfficiencyPlots(path1,path2,args=None):
     Setup()
     tempbatch=ROOT.gROOT.IsBatch()
     tempignorelevel=ROOT.gErrorIgnoreLevel
     ROOT.gROOT.SetBatch(True)
     ROOT.gErrorIgnoreLevel=ROOT.kWarning
 
+    if ":" in path1:
+        filename1,suffix1=path1.split(":",1)
+    else:
+        filename1,suffix1=path1,""
+
+    if ":" in path2:
+        filename2,suffix2=path2.split(":",1)
+    else:
+        filename2,suffix2=path2,""
     h1=EfficiencyHist(filename1+":data").MakeTH()
     if not h1:
         print "No data in "+filename1
@@ -523,29 +566,41 @@ def CompareEfficiencyPlots(filename1,filename2):
         return
     h=h1
     plotdir="compare"
+    if os.path.exists(plotdir):
+        os.system("rm -r "+plotdir)
     if not os.path.exists(plotdir):
         os.makedirs(plotdir)
     for i in range(1,h.GetNbinsY()+1):
-        c=MergeCanvases([GetEfficiencyPlot(filename1,axis="x",ibin=i),GetEfficiencyPlot(filename2,axis="x",ibin=i)])
+        c1=GetEfficiencyPlot(path1,axis="x",ibin=i)
+        c2=GetEfficiencyPlot(path2,axis="x",ibin=i)
+        if args and hasattr(args,"label"):
+            c1.SetTitle(args.label[0])
+            c2.SetTitle(args.label[1])
+        c=MergeCanvases([c1,c2])
         c.SaveAs(plotdir+"/eff_x{}.pdf".format(i))
         c.SaveAs(plotdir+"/eff_x{}.png".format(i))
-    c=MergeCanvases([GetEfficiencyPlot(filename1,axis="x"),GetEfficiencyPlot(filename2,axis="x")])
+    c=MergeCanvases([GetEfficiencyPlot(path1,axis="x"),GetEfficiencyPlot(path2,axis="x")])
     c.SaveAs(plotdir+"/eff_x.pdf")
     c.SaveAs(plotdir+"/eff_x.png")
-    c=MergeCanvases([GetEfficiencyPlot(filename1,axis="x",ibin=[None,h.GetYaxis().FindBin(30),h.GetYaxis().FindBin(90)]),
-                     GetEfficiencyPlot(filename2,axis="x",ibin=[None,h.GetYaxis().FindBin(30),h.GetYaxis().FindBin(90)])])
+    c=MergeCanvases([GetEfficiencyPlot(path1,axis="x",ibin=[None,h.GetYaxis().FindBin(30),h.GetYaxis().FindBin(90)]),
+                     GetEfficiencyPlot(path2,axis="x",ibin=[None,h.GetYaxis().FindBin(30),h.GetYaxis().FindBin(90)])])
     c.SaveAs(plotdir+"/eff_xx.pdf")
     c.SaveAs(plotdir+"/eff_xx.png")
         
     for i in range(1,h.GetNbinsX()+1):
-        c=MergeCanvases([GetEfficiencyPlot(filename1,axis="y",ibin=i),GetEfficiencyPlot(filename2,axis="y",ibin=i)])
+        c1=GetEfficiencyPlot(path1,axis="y",ibin=i)
+        c2=GetEfficiencyPlot(path2,axis="y",ibin=i)
+        if args and hasattr(args,"label"):
+            c1.SetTitle(args.label[0])
+            c2.SetTitle(args.label[1])
+        c=MergeCanvases([c1,c2])
         c.SaveAs(plotdir+"/eff_y{}.pdf".format(i))
         c.SaveAs(plotdir+"/eff_y{}.png".format(i))
-    c=MergeCanvases([GetEfficiencyPlot(filename1,axis="y"),GetEfficiencyPlot(filename2,axis="y")])
+    c=MergeCanvases([GetEfficiencyPlot(path1,axis="y"),GetEfficiencyPlot(path2,axis="y")])
     c.SaveAs(plotdir+"/eff_y.pdf")
     c.SaveAs(plotdir+"/eff_y.png")
-    c=MergeCanvases([GetEfficiencyPlot(filename1,axis="y",ibin=[None,h.GetXaxis().FindBin(0.0),h.GetXaxis().FindBin(2.39)]),
-                     GetEfficiencyPlot(filename2,axis="y",ibin=[None,h.GetXaxis().FindBin(0.0),h.GetXaxis().FindBin(2.39)])])
+    c=MergeCanvases([GetEfficiencyPlot(path1,axis="y",ibin=[None,h.GetXaxis().FindBin(0.0),h.GetXaxis().FindBin(2.39)]),
+                     GetEfficiencyPlot(path2,axis="y",ibin=[None,h.GetXaxis().FindBin(0.0),h.GetXaxis().FindBin(2.39)])])
     c.SaveAs(plotdir+"/eff_yy.pdf")
     c.SaveAs(plotdir+"/eff_yy.png")
     
@@ -563,8 +618,16 @@ def PrintEfficiency(path):
     return
     
 if __name__=="__main__":
-    if len(sys.argv)==2:
-        SavePlots(sys.argv[1])
-    if len(sys.argv)==3:
-        CompareEfficiencyPlots(sys.argv[1],sys.argv[2])
+    import argparse
+    parser=argparse.ArgumentParser()
+    parser.add_argument("path1",help="efficiency root file path")
+    parser.add_argument("path2",nargs="?",help="efficiency root file path")
+    parser.add_argument("--label",default="A,B",help="comma-separated labels")
+    args=parser.parse_args()
+
+    if args.label: args.label=args.label.split(",")
+    if args.path2 is None:
+        SavePlots(args.path1)
+    else:
+        CompareEfficiencyPlots(args.path1,args.path2,args)
     exit()

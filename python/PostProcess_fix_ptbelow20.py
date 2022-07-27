@@ -1,4 +1,4 @@
-import sys
+import sys,os
 import ROOT
 from efficiencyUtils import make_combined_hist
 
@@ -58,6 +58,11 @@ def PostProcess_fix_ptbelow20(filename):
     fout=ROOT.TFile(filename.replace(".root","_modified.root"),"recreate")
     for h in hists_out:
         h.Write()
+    fin.Close()
+    fout.Close()
+    os.system("mv {} {}".format(filename,filename.replace(".root","_original.root")))
+    os.system("mv {} {}".format(filename.replace(".root","_modified.root"),filename))
+    
     
 if __name__=="__main__":
     PostProcess_fix_ptbelow20(sys.argv[1])
