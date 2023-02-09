@@ -24,7 +24,7 @@ parser.add_argument('--bin', '-b'  , dest = 'bins'   , type = str, help='bin num
 parser.add_argument('--data', dest='isData', action='store_true')
 parser.add_argument('--sim', dest='isSim', action='store_true')
 parser.add_argument('--log'        , action='store_true'     , help = 'keep logs')
-parser.add_argument('--njob', '-n' , default="100,20", help = 'condor njob per job submission for each step: "HIST,FIT". Or you can use one number for all steps')
+parser.add_argument('--njob', '-n' , default="20,10", help = 'condor njob per job submission for each step: "HIST,FIT". Or you can use one number for all steps')
 parser.add_argument('--ijob', '-i' , type = int, help = 'condor job index (for internal use)')
 parser.add_argument('--nmax'       , default=300, type = int, help = 'condor nmax job (concurrency limits)')
 parser.add_argument('--no-condor'  , dest = "condor", action='store_false' )
@@ -317,7 +317,7 @@ if "sum" in args.step:
     from plotUtils import SavePlots
     SavePlots(config.path+"/efficiency.root")
 
-    if "fix_ptbelow20" in config.option and config.tree=='tnpEleIDs/fitter_tree':
+    if "fix_ptbelow20" in config.option:
         print '[Summary] post-process for "fix_ptbelow20"'
         from PostProcess_fix_ptbelow20 import PostProcess_fix_ptbelow20
         PostProcess_fix_ptbelow20(config.path+"/efficiency.root")

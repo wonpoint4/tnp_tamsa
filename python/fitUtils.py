@@ -176,9 +176,9 @@ class tnpFitter(object):
         text_eff.SetBorderSize(0)
         text_eff.SetTextAlign(12)
         if isFit:
-            text_eff.AddText("eff = {:.4f} #pm {:.4f}".format(fit_eff,fit_err))
+            text_eff.AddText("eff = {:.6f} #pm {:.6f}".format(fit_eff,fit_err))
         else:
-            text_eff.AddText("eff = {:.4f} #pm {:.4f}".format(count_eff,count_err))            
+            text_eff.AddText("eff = {:.6f} #pm {:.6f}".format(count_eff,count_err))
 
         text_eff.Draw()
         text1.Draw()
