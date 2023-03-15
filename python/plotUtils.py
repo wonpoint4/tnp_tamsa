@@ -278,7 +278,7 @@ def GetSystematicPlot(filename,axis="x",ibin=None,ymin=None):
                 values+=[abs(h.GetBinContent(i))+h.GetBinError(i)]
     values=sorted(values)
     #ymax=values[int((len(values)-1)*0.8)]*2
-    while numpy.mean(values)+3*numpy.std(values)<values[-1]:
+    while len(values)>7 and numpy.mean(values)+3*numpy.std(values)<values[-1]:
         values=values[:-1]
     ymax=2*numpy.mean(values)
     ymax=math.ceil(ymax*100)/100.-0.001

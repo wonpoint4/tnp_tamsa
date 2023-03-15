@@ -25,7 +25,7 @@ def PostProcess_fix_ptbelow20(filename):
 
     data_hists=[]
     for iset in range(20):
-        hist_set=[h for h in hists if "data_s{}".format(iset) in h.GetName()]
+        hist_set=[h for h in hists if "data_s{}m".format(iset) in h.GetName()]
         if len(hist_set)==0: break
         data_hists+=[hist_set]        
     hist=fin.Get("data_s0m0").Clone()
@@ -37,7 +37,7 @@ def PostProcess_fix_ptbelow20(filename):
 
     sim_hists=[]
     for iset in range(20):
-        hist_set=[h for h in hists if "sim_s{}".format(iset) in h.GetName()]
+        hist_set=[h for h in hists if "sim_s{}m".format(iset) in h.GetName()]
         if len(hist_set)==0: break
         sim_hists+=[hist_set]        
     hist=fin.Get("sim_s0m0").Clone()

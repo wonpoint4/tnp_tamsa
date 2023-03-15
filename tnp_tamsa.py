@@ -24,7 +24,7 @@ parser.add_argument('--bin', '-b'  , dest = 'bins'   , type = str, help='bin num
 parser.add_argument('--data', dest='isData', action='store_true')
 parser.add_argument('--sim', dest='isSim', action='store_true')
 parser.add_argument('--log'        , action='store_true'     , help = 'keep logs')
-parser.add_argument('--njob', '-n' , default="20,10", help = 'condor njob per job submission for each step: "HIST,FIT". Or you can use one number for all steps')
+parser.add_argument('--njob', '-n' , default="100,10", help = 'condor njob per job submission for each step: "HIST,FIT". Or you can use one number for all steps')
 parser.add_argument('--ijob', '-i' , type = int, help = 'condor job index (for internal use)')
 parser.add_argument('--nmax'       , default=300, type = int, help = 'condor nmax job (concurrency limits)')
 parser.add_argument('--no-condor'  , dest = "condor", action='store_false' )
@@ -157,6 +157,7 @@ arguments = $(Process)
 output = {0}/job$(Process).out
 error = {0}/job$(Process).err
 log = {0}/condor.log
+request_memory = 1500
 concurrency_limits = {1}
 jobbatchname = {2}
 getenv = True
@@ -170,7 +171,7 @@ queue {3}
             if not check_condor(clusterid,njob):
                 exit(1)
             outfiles=["{}/job{}.root".format(working_dir,i) for i in range(njob)]
-            exitcode=os.system('condor_run -a jobbatchname={} -a request_cpus=8 -a concurrency_limits=n32.tnphadd hadd -j 8 -f {} {} > /dev/null'.format(jobbatchname+"_hadd","/".join([hist_config[0].path,hist_config[0].hist_file]),' '.join(outfiles)))
+            exitcode=os.system('condor_run -a jobbatchname={} -a request_cpus=4 -a concurrency_limits=n32.tnphadd hadd -j 4 -f {} {} > /dev/null'.format(jobbatchname+"_hadd","/".join([hist_config[0].path,hist_config[0].hist_file]),' '.join(outfiles)))
             if exitcode!=0:
                 print "hadd failed"
                 exit(exitcode)
@@ -267,13 +268,13 @@ queue arguments from (
 #flag.fitFile='%s/%s_fit.root' % ( outputDirectory,args.flag )
 if "sum" in args.step:
     from efficiencyUtils import make_combined_hist
-    print '[Summary] hadd {}'.format(config.data_fit_file)
-    exitcode=os.system("hadd -f {0}/{1} $(find {0}/{2} -type f -name '*.root'|sort -V) > /dev/null 2>&1".format(config.path,config.data_fit_file,config.data_fit_file.replace(".root",".d")))
+    print '[Summary] collectFits {}'.format(config.data_fit_file)
+    exitcode=os.system("python python/collectFits.py {0}/{1} $(find {0}/{2} -type f -name '*.root'|sort -V) > /dev/null 2>&1".format(config.path,config.data_fit_file,config.data_fit_file.replace(".root",".d")))
     if exitcode!=0:
         print "hadd failed"
         exit(exitcode)
-    print '[Summary] hadd {}'.format(config.sim_fit_file)
-    exitcode=os.system("hadd -f {0}/{1} $(find {0}/{2} -type f -name '*.root'|sort -V) > /dev/null 2>&1".format(config.path,config.sim_fit_file,config.sim_fit_file.replace(".root",".d")))
+    print '[Summary] collectFits {}'.format(config.sim_fit_file)
+    exitcode=os.system("python python/collectFits.py {0}/{1} $(find {0}/{2} -type f -name '*.root'|sort -V) > /dev/null 2>&1".format(config.path,config.sim_fit_file,config.sim_fit_file.replace(".root",".d")))
     if exitcode!=0:
         print "hadd failed"
         exit(exitcode)

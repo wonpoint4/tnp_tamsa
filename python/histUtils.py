@@ -100,7 +100,6 @@ def postProcess(filename):
 
 def makePassFailHistograms( configs, njob, ijob ):
     ROOT.TH1.SetDefaultSumw2()
-    
     if not type(configs) is list:
         configs=[configs]
 
@@ -137,8 +136,8 @@ def makePassFailHistograms( configs, njob, ijob ):
     bin_formulars=[None]*len(bins)
     expr_formulars=[None]*len(configs)
     hists=[[[] for i in range(len(bins))] for i in range(len(configs))]
-    xs=[[[] for i in range(len(bins))] for i in range(len(configs))]
-    weight_formulars=[[[] for i in range(len(bins))] for i in range(len(configs))]
+    xs=[[] for i in range(len(configs))]
+    weight_formulars=[[] for i in range(len(configs))]
     
     for ib in range(len(bins)):
         bin_formulars[ib]=ROOT.TTreeFormula('{}_BinCut'.format(bins[ib]['name']), bins[ib]['cut'], tree)
@@ -146,31 +145,33 @@ def makePassFailHistograms( configs, njob, ijob ):
     for ic in range(len(configs)):
         config=configs[ic]
         expr_formulars[ic]=ROOT.TTreeFormula('{}_expr'.format(config.hist_prefix), config.expr, tree)
-        for ib in range(len(bins)):
-            for isPass,genmatching,genmass in [[i%2==0,(i//2)%2==1,(i//4)%2==1] for i in range(2**3)]:
-                if not config.genmatching and genmatching: continue
-                if not config.genmass and genmass: continue
+        for isPass,genmatching,genmass in [[i%2==0,(i//2)%2==1,(i//4)%2==1] for i in range(2**3)]:
+            if not config.genmatching and genmatching: continue
+            if not config.genmass and genmass: continue
+
+            if isPass: 
+                weight="({})".format(config.test)
+            else:
+                weight="!({})".format(config.test)
+            if genmatching:
+                weight+="*({})".format(config.genmatching)
+            if config.weight:
+                weight+="*({})".format(config.weight)                    
+            weight_formulars[ic]+=[ROOT.TTreeFormula('c{}h{}_weight'.format(ic,i), weight, tree)]
+
+            if genmass:
+                xs[ic]+=[config.genmass]
+            else:
+                xs[ic]+=[config.mass]
+
+            for ib in range(len(bins)):
                 histname=config.get_histname(ib,isPass=isPass,genmatching=genmatching,genmass=genmass)
                 hists[ic][ib]+=[ROOT.TH1D(histname,bins[ib]['title'],config.hist_nbins,config.hist_range[0],config.hist_range[1])]
 
-                if isPass: 
-                    weight="({})".format(config.test)
-                else:
-                    weight="!({})".format(config.test)
-                if genmatching:
-                    weight+="*({})".format(config.genmatching)
-                if config.weight:
-                    weight+="*({})".format(config.weight)                    
-                weight_formulars[ic][ib]+=[ROOT.TTreeFormula('{}_weight'.format(histname), weight, tree)]
-
-                if genmass:
-                    xs[ic][ib]+=[config.genmass]
-                else:
-                    xs[ic][ib]+=[config.mass]
 
     print len(configs),len(bins),len(hists),len(hists[0]),len(hists[0][0])
     notify_list=ROOT.TList()
-    for formular in expr_formulars+bin_formulars+[f for fff in weight_formulars for ff in fff for f in ff]:
+    for formular in expr_formulars+bin_formulars+[f for ff in weight_formulars for f in ff]:
         notify_list.Add(formular)
     tree.SetNotify(notify_list)
 
@@ -232,7 +233,7 @@ def makePassFailHistograms( configs, njob, ijob ):
             ib=configs[ic].find_bin(vals)
             if ib is None: continue
             for ih in range(len(hists[ic][ib])):
-                weight = weight_formulars[ic][ib][ih].EvalInstance()
+                weight = weight_formulars[ic][ih].EvalInstance()
                 if not weight: continue
                 if math.isnan(weight):
                     print 'Error: nan weight!!! continue'
@@ -242,7 +243,7 @@ def makePassFailHistograms( configs, njob, ijob ):
                     continue
                 if hasattr(configs[ic],"maxweight") and abs(weight)>configs[ic].maxweight:
                     weight=math.copysign(configs[ic].maxweight,weight)
-                hists[ic][ib][ih].Fill(getattr(tree,xs[ic][ib][ih]),expr*weight)
+                hists[ic][ib][ih].Fill(getattr(tree,xs[ic][ih]),expr*weight)
 
     te=time.time()
     print(te-ts)
