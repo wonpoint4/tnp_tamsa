@@ -1,5 +1,5 @@
 from tnpConfig import tnpConfig
-### Electron energy correction; HLT matching DR03->DR01; more systematics; pt bin [45,70] -> [45,50,60,70]; fixbug: 2012 alttag;
+### RECO efficiency
 ############## samples ################
 samples={
     'data2012':'/gv0/Users/hsseo/TnP_Run12/data',
@@ -8,21 +8,29 @@ samples={
     'data2016a':'/gv0/Users/hsseo/EgammaTnP/SKFlat/Run2UltraLegacy_v3/2016preVFP/DATA_SkimTree_EgammaTnP/SingleElectron',
     'mi2016a':'/gv0/Users/hsseo/EgammaTnP/SKFlat/Run2UltraLegacy_v3/2016preVFP/MC_SkimTree_EgammaTnP/DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos',
     'mg2016a':'/gv0/Users/hsseo/EgammaTnP/SKFlat/Run2UltraLegacy_v3/2016preVFP/MC_SkimTree_EgammaTnP/DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8',
+    'data2016a_reco':'/gv0/Users/hsseo/EgammaTnP/2023-04-13/UL2016preVFP/data/SingleElectron',
+    'mi2016a_reco':'/gv0/Users/hsseo/EgammaTnP/2023-04-13/UL2016preVFP/mc/DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos',
+    'mg2016a_reco':'/gv0/Users/hsseo/EgammaTnP/2023-04-13/UL2016preVFP/mc/DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8',
 
     'data2016b':'/gv0/Users/hsseo/EgammaTnP/SKFlat/Run2UltraLegacy_v3/2016postVFP/DATA_SkimTree_EgammaTnP/SingleElectron',
     'mi2016b':'/gv0/Users/hsseo/EgammaTnP/SKFlat/Run2UltraLegacy_v3/2016postVFP/MC_SkimTree_EgammaTnP/DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos',
     'mg2016b':'/gv0/Users/hsseo/EgammaTnP/SKFlat/Run2UltraLegacy_v3/2016postVFP/MC_SkimTree_EgammaTnP/DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8',
+    'data2016b_reco':'/gv0/Users/hsseo/EgammaTnP/2023-04-13/UL2016postVFP/data/SingleElectron',
+    'mi2016b_reco':'/gv0/Users/hsseo/EgammaTnP/2023-04-13/UL2016postVFP/mc/DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos',
+    'mg2016b_reco':'/gv0/Users/hsseo/EgammaTnP/2023-04-13/UL2016postVFP/mc/DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8',
 
     'data2017':'/gv0/Users/hsseo/EgammaTnP/SKFlat/Run2UltraLegacy_v3/2017/DATA_SkimTree_EgammaTnP/SingleElectron',
     'mi2017':'/gv0/Users/hsseo/EgammaTnP/SKFlat/Run2UltraLegacy_v3/2017/MC_SkimTree_EgammaTnP/DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos',
-    'mg2017':'/gv0/Users/hsseo/EgammaTnP/SKFlat/Run2UltraLegacy_v3/2017/MC_SkimTree_EgammaTnP/DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8/',
+    'mg2017':'/gv0/Users/hsseo/EgammaTnP/SKFlat/Run2UltraLegacy_v3/2017/MC_SkimTree_EgammaTnP/DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8',
     'data2017_reco':'/gv0/Users/hsseo/EgammaTnP/2023-04-13/UL2017/data/SingleElectron',
-    'mi2017_reco':'/gv0/Users/hsseo/EgammaTnP/2023-04-13/UL2017/mc/DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/crab_UL2017_DY_NNLO_partial',
+    'mi2017_reco':'/gv0/Users/hsseo/EgammaTnP/2023-04-13/UL2017/mc/DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos',
+    'mg2017_reco':'/gv0/Users/hsseo/EgammaTnP/2023-04-13/UL2017/mc/DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8',
 
     'data2018':'/gv0/Users/hsseo/EgammaTnP/SKFlat/Run2UltraLegacy_v3/2018/DATA_SkimTree_EgammaTnP/EGamma',
     'mi2018':'/gv0/Users/hsseo/EgammaTnP/SKFlat/Run2UltraLegacy_v3/2018/MC_SkimTree_EgammaTnP/DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos',
-    'mg2018':'/gv0/Users/hsseo/EgammaTnP/SKFlat/Run2UltraLegacy_v3/2018/MC_SkimTree_EgammaTnP/DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8/',
+    'mg2018':'/gv0/Users/hsseo/EgammaTnP/SKFlat/Run2UltraLegacy_v3/2018/MC_SkimTree_EgammaTnP/DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8',
     'data2018_reco':'/gv0/Users/hsseo/EgammaTnP/2023-04-13/UL2018/data/EGamma',
+    'mi2018_reco':'/gv0/Users/hsseo/EgammaTnP/2023-04-13/UL2018/mc/DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos',
     'mg2018_reco':'/gv0/Users/hsseo/EgammaTnP/2023-04-13/UL2018/mc/DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8',
 }
 ############## binning ################
@@ -230,44 +238,6 @@ Configs['2012_Ele27_SelQ_MediumID_Plus']=config.clone(
     count_range=(76,106),
 )
 
-## RECO
-Configs['2017_RECO']=tnpConfig(
-    data=samples['data2017_reco'],
-    sim=samples['mi2017_reco'],
-    sim_weight='totWeight',
-    sim_maxweight=10000.,
-    sim_genmatching='mcTrue',
-    sim_genmass="mcMass",
-    tree='tnpEleReco/fitter_tree',
-    mass="pair_mass",
-    bins=bin_RECO,
-    expr='( tag_Ele_pt>35 )',
-    test='passingRECO',
-    hist_nbins=98,
-    hist_range=(52,150),
-    method="fit",
-    fit_parameter=fit_nominal,
-    fit_range=(60,140),
-    count_range=None,
-    systematic=[
-        [{'title':'altbkg'}],
-        [{'title':'altsig','fit_parameter':fit_altsig}],
-        [{'title':'alttag','expr.replace':('tag_Ele_pt>35','tag_Ele_pt>38')}],
-        #[{'title':'altmc','sim.replace':('DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos','DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8')}],
-        #[{'title':'altsub','expr.replace':('(el_q*tag_Ele_q<0?1.:-1.)','(el_q*tag_Ele_q<0?1.:-0.6)')}],
-        #[{'title':'nogenmatching','sim_genmatching':"(1)"}],
-        #[{'title':'PUweight_up','sim_weight.replace':('PUweight','PUweight_up')},{'title':'PUweight_down','sim_weight.replace':('PUweight','PUweight_down')}],
-        #[{'title':'prefireweight_up','sim_weight.replace':('prefireweight','prefireweight_up')},{'title':'prefireweight_down','sim_weight.replace':('prefireweight','prefireweight_down')}],
-        #[{'title':'zptweight','sim_weight.add':'*zptweight'}],
-        #[{'title':'z0weight','sim_weight.add':'*z0weight'}],
-    ],
-)
-Configs['2018_RECO']=Configs['2017_RECO'].clone(
-    data=samples['data2018_reco'],
-    sim=samples['mg2018_reco'],
-)
-
-
 #### 2016a
 ## ID
 config=tnpConfig(
@@ -468,6 +438,65 @@ Configs['2018_Ele28_SelQ_MediumID_Plus']=config.clone(
     expr='( passingCutBasedMedium94XV2&&el_3charge && tag_passHltEle28WPTightGsf&&tag_passingCutBasedTight94XV2 && tag_Ele_pt_cor>35 && el_q>0 )',
     test='passHltEle28WPTightGsf',
 )
+
+## RECO
+Configs['2016a_RECO']=tnpConfig(
+    data=samples['data2016a_reco'],
+    sim=samples['mi2016a_reco'],
+    sim_weight='totWeight',
+    sim_maxweight=10000.,
+    sim_genmatching='mcTrue',
+    sim_genmass="mcMass",
+    tree='tnpEleReco/fitter_tree',
+    mass="pair_mass",
+    bins=bin_RECO,
+    expr='( tag_Ele_pt>30 )',
+    test='passingRECO',
+    hist_nbins=98,
+    hist_range=(52,150),
+    method="fit",
+    fit_parameter=fit_nominal,
+    fit_range=(60,140),
+    count_range=None,
+    systematic=[
+        [{'title':'altbkg'}],
+        [{'title':'altsig','fit_parameter':fit_altsig}],
+        [{'title':'alttag','expr.replace':('tag_Ele_pt>30','tag_Ele_pt>35')}],
+        [{'title':'altmc','sim.replace':('DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos','DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8')}],
+        #[{'title':'altsub','expr.replace':('(el_q*tag_Ele_q<0?1.:-1.)','(el_q*tag_Ele_q<0?1.:-0.6)')}],
+        #[{'title':'nogenmatching','sim_genmatching':"(1)"}],
+        #[{'title':'PUweight_up','sim_weight.replace':('PUweight','PUweight_up')},{'title':'PUweight_down','sim_weight.replace':('PUweight','PUweight_down')}],
+        #[{'title':'prefireweight_up','sim_weight.replace':('prefireweight','prefireweight_up')},{'title':'prefireweight_down','sim_weight.replace':('prefireweight','prefireweight_down')}],
+        #[{'title':'zptweight','sim_weight.add':'*zptweight'}],
+        #[{'title':'z0weight','sim_weight.add':'*z0weight'}],
+    ],
+)
+Configs['2016b_RECO']=Configs['2016a_RECO'].clone(
+    data=samples['data2016b_reco'],
+    sim=samples['mi2016b_reco'],
+)
+Configs['2017_RECO']=Configs['2016a_RECO'].clone(
+    data=samples['data2017_reco'],
+    sim=samples['mi2017_reco'],
+    expr='( tag_Ele_pt>35 )',
+    systematic=[
+        [{'title':'altbkg'}],
+        [{'title':'altsig','fit_parameter':fit_altsig}],
+        [{'title':'alttag','expr.replace':('tag_Ele_pt>35','tag_Ele_pt>38')}],
+        [{'title':'altmc','sim.replace':('DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos','DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8')}],
+        #[{'title':'altsub','expr.replace':('(el_q*tag_Ele_q<0?1.:-1.)','(el_q*tag_Ele_q<0?1.:-0.6)')}],
+        #[{'title':'nogenmatching','sim_genmatching':"(1)"}],
+        #[{'title':'PUweight_up','sim_weight.replace':('PUweight','PUweight_up')},{'title':'PUweight_down','sim_weight.replace':('PUweight','PUweight_down')}],
+        #[{'title':'prefireweight_up','sim_weight.replace':('prefireweight','prefireweight_up')},{'title':'prefireweight_down','sim_weight.replace':('prefireweight','prefireweight_down')}],
+        #[{'title':'zptweight','sim_weight.add':'*zptweight'}],
+        #[{'title':'z0weight','sim_weight.add':'*z0weight'}],
+    ],
+)
+Configs['2018_RECO']=Configs['2017_RECO'].clone(
+    data=samples['data2018_reco'],
+    sim=samples['mg2018_reco'],
+)
+
 
 #### minus
 Configs_minus={}
