@@ -262,9 +262,10 @@ def GetSystematicPlot(filename,axis="x",ibin=None,ymin=None):
     leg.SetNColumns(2)
     leg.AddEntry(Find(hists,name="total"),"total unc.","f")
     leg.AddEntry(Find(hists,name="stat"),"stat. unc.","l")
-    for i in range(1,20):
+    maxset=max([s for s,m in h.GetStructure()])
+    for i in range(1,maxset+1):
         hist=Find(hists,name="s{}m0".format(i))
-        if not hist: break
+        if not hist: continue
         title=hist.GetTitle()
         leg.AddEntry(hist,title,"l")
     leg.Draw()
@@ -281,7 +282,10 @@ def GetSystematicPlot(filename,axis="x",ibin=None,ymin=None):
     while len(values)>7 and numpy.mean(values)+3*numpy.std(values)<values[-1]:
         values=values[:-1]
     ymax=2*numpy.mean(values)
-    ymax=math.ceil(ymax*100)/100.-0.001
+    if ymax<0.01:
+        ymax=math.ceil(ymax*400)/400.-0.0001
+    else:
+        ymax=math.ceil(ymax*100)/100.-0.001
     GetAxisParent(c.GetPad(1)).GetYaxis().SetRangeUser(-ymax,ymax)
     GetAxisParent(c.GetPad(2)).GetYaxis().SetRangeUser(-ymax,ymax)
     GetAxisParent(c.GetPad(3)).GetYaxis().SetRangeUser(-ymax,ymax)
@@ -437,6 +441,7 @@ def GetEfficiencyPlot(path,axis="y",ibin=None):
  
     GetAxisParent().GetXaxis().SetMoreLogLabels()
     GetAxisParent().GetYaxis().SetRangeUser(0.81,1.19)
+    GetAxisParent().GetYaxis().SetRangeUser(0.96,1.04)
     GetAxisParent().GetYaxis().SetNdivisions(205)
     GetAxisParent().GetYaxis().SetTitle("SF")
     GetAxisParent().SetTitleSize(0.04/min(ROOT.gPad.GetHNDC(),ROOT.gPad.GetWNDC()),"XYZ")

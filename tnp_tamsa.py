@@ -28,6 +28,7 @@ parser.add_argument('--njob', '-n' , default="100,10", help = 'condor njob per j
 parser.add_argument('--ijob', '-i' , type = int, help = 'condor job index (for internal use)')
 parser.add_argument('--nmax'       , default=300, type = int, help = 'condor nmax job (concurrency limits)')
 parser.add_argument('--no-condor'  , dest = "condor", action='store_false' )
+parser.add_argument('--reduction', type = int, default=1, help='reduction in hist step')
 #parser.add_argument('--log'        , action='store_false'     , help = 'keep logs')
 
 parser.add_argument('--fit'   )
@@ -132,7 +133,7 @@ if "hist" in args.step:
     hist_configs=config.make_hist_configs()
     njob=args.njob[0]
     if args.condor==False:
-        histUtils.makePassFailHistograms( hist_configs[args.set], njob, args.ijob)
+        histUtils.makePassFailHistograms( hist_configs[args.set], njob, args.ijob, args.reduction)
     elif args.condor==True:
         for iconf in range(len(hist_configs)):
             if args.set!=None and args.set!=iconf: continue
@@ -145,9 +146,9 @@ if "hist" in args.step:
             open(working_dir+'/run.sh','w').write(
 '''#!/bin/bash
 cd $TNP_BASE
-python tnp_tamsa.py {} {} --step hist --set {} --njob {} --ijob $1 --no-condor
+python tnp_tamsa.py {} {} --step hist --set {} --njob {} --ijob $1 --reduction {} --no-condor
 exit $?
-'''.format(args.settings,args.config,iconf,njob)
+'''.format(args.settings,args.config,iconf,njob,args.reduction)
             )
             os.system("chmod +x "+working_dir+'/run.sh')
 
@@ -269,12 +270,14 @@ queue arguments from (
 if "sum" in args.step:
     from efficiencyUtils import make_combined_hist
     print '[Summary] collectFits {}'.format(config.data_fit_file)
-    exitcode=os.system("python python/collectFits.py {0}/{1} $(find {0}/{2} -type f -name '*.root'|sort -V) > /dev/null 2>&1".format(config.path,config.data_fit_file,config.data_fit_file.replace(".root",".d")))
+    #exitcode=os.system("python python/collectFits.py {0}/{1} $(find {0}/{2} -type f -name '*.root'|sort -V) > /dev/null 2>&1".format(config.path,config.data_fit_file,config.data_fit_file.replace(".root",".d")))
+    exitcode=os.system("python python/collectFits.py {0}/{1} {0}/{2}".format(config.path,config.data_fit_file,config.data_fit_file.replace(".root",".d")))
     if exitcode!=0:
-        print "hadd failed"
+        print "hadd failed (exit {})".format(exitcode)
         exit(exitcode)
     print '[Summary] collectFits {}'.format(config.sim_fit_file)
-    exitcode=os.system("python python/collectFits.py {0}/{1} $(find {0}/{2} -type f -name '*.root'|sort -V) > /dev/null 2>&1".format(config.path,config.sim_fit_file,config.sim_fit_file.replace(".root",".d")))
+    #exitcode=os.system("python python/collectFits.py {0}/{1} $(find {0}/{2} -type f -name '*.root'|sort -V) > /dev/null 2>&1".format(config.path,config.sim_fit_file,config.sim_fit_file.replace(".root",".d")))
+    exitcode=os.system("python python/collectFits.py {0}/{1} {0}/{2}".format(config.path,config.sim_fit_file,config.sim_fit_file.replace(".root",".d")))
     if exitcode!=0:
         print "hadd failed"
         exit(exitcode)

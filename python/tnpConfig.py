@@ -245,7 +245,7 @@ class tnpConfig(object):
                 member.name="s{}m{}".format(iset+1,imem) ## iset+1 since 0 is reserved for the nominal
                 if "sim" in [key.split(".",1)[0] for key in modifier]:
                     member.sim_hist_file="hists_altsim.root"
-                for key in ["tree","sim_weight","sim_genmatching","sim_genmass","mass","expr","hist_nbins","hist_range"]: 
+                for key in ["tree","sim_weight","sim_maxweight","sim_genmatching","sim_genmass","mass","expr","test","hist_nbins","hist_range"]: 
                     if key in [k.split(".",1)[0] for k in modifier]:
                         member.hist_prefix="s{}m{}/".format(iset+1,imem) ## iset+1 since 0 is reserved for the nominal
                         break
@@ -275,7 +275,11 @@ class tnpConfig(object):
             for key in modifier:
                 if ".replace" in key:
                     key_=key.split(".",1)[0]
-                    setattr(out,key_,getattr(out,key_).replace(modifier[key][0],modifier[key][1]))
+                    toreplace=modifier[key]
+                    if type(toreplace) is tuple:
+                        toreplace=[toreplace]
+                    for rep in toreplace:
+                        setattr(out,key_,getattr(out,key_).replace(rep[0],rep[1]))
                 elif ".add" in key:
                     key_=key.split(".",1)[0]
                     setattr(out,key_,getattr(out,key_)+modifier[key])

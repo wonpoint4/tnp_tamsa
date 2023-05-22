@@ -98,7 +98,7 @@ def postProcess(filename):
 # To Fill Tag and Probe histograms
 ##################################
 
-def makePassFailHistograms( configs, njob, ijob ):
+def makePassFailHistograms( configs, njob, ijob, reduction=1 ):
     ROOT.TH1.SetDefaultSumw2()
     if not type(configs) is list:
         configs=[configs]
@@ -138,7 +138,10 @@ def makePassFailHistograms( configs, njob, ijob ):
     hists=[[[] for i in range(len(bins))] for i in range(len(configs))]
     xs=[[] for i in range(len(configs))]
     weight_formulars=[[] for i in range(len(configs))]
-    
+    preselection=None
+    if hasattr(configs[0],"preselection") and configs[0].preselection not in [None,""]:
+        preselection=ROOT.TTreeFormula('preselection', configs[0].preselection, tree)
+
     for ib in range(len(bins)):
         bin_formulars[ib]=ROOT.TTreeFormula('{}_BinCut'.format(bins[ib]['name']), bins[ib]['cut'], tree)
 
@@ -189,6 +192,8 @@ def makePassFailHistograms( configs, njob, ijob ):
         branches+=" {}".format(config.genmatching)
         branches+=" {}".format(config.genmass)
         branches+=" {}".format(" ".join(config.vars))
+    if hasattr(configs[0],"preselection") and configs[0].preselection not in [None,""]:
+        branches+=" {}".format(configs[0].preselection)
         
     for p in replace_patterns:
         branches = branches.replace(p, ' ')
@@ -205,6 +210,10 @@ def makePassFailHistograms( configs, njob, ijob ):
     ################
     
     nevents = tree.GetEntries()
+    if reduction != 1:
+        nevents = int(nevents/reduction)
+        print "reduction: {} -> {}".format(tree.GetEntries(),nevents)
+
     startevent = 0
     endevent = nevents
     if split_events:        
@@ -224,6 +233,8 @@ def makePassFailHistograms( configs, njob, ijob ):
             sys.stdout.flush()
 
         tree.GetEntry(index)
+        if preselection and not preselection.EvalInstance():
+            continue
         for ic in range(len(configs)):
             expr=expr_formulars[ic].EvalInstance()
             if not expr: continue

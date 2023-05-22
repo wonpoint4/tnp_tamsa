@@ -13,7 +13,14 @@ def GetNames(directory):
     return names
 
 fout=ROOT.TFile(sys.argv[1],"recreate")
-for fname in sys.argv[2:]:
+filelist=[]
+for src in sys.argv[2:]:
+    if os.path.isfile(src):
+        filelist.append(src)
+    elif os.path.isdir(src):
+        filelist+=os.popen("find {} -type f -name '*.root'|sort -V".format(src)).read().split()
+#print(filelist)
+for fname in filelist:
     fin=ROOT.TFile(fname)
     for name in GetNames(fin):
         obj=fin.Get(name)

@@ -1,4 +1,4 @@
-import math,copy
+import math,copy,re
 import ROOT
 
 def add_error_maxdiff(nominal,syss):
@@ -36,6 +36,8 @@ class Efficiency(object):
         n2=other.GetEffectiveEntries()
         if n1==0: return other.clone()
         if n2==0: return self.clone()
+        n1*=self.val
+        n2*=other.val
         result=self.clone()
         w1=n1/(n1+n2)
         w2=n2/(n1+n2)
@@ -152,10 +154,9 @@ class EfficiencyHist:
         fin=ROOT.TFile(filename)
         keys=[key.GetName() for key in fin.GetListOfKeys() if key.GetName().startswith(histname+"_s")]
         hists=[]
-        for i in range(100):
+        maxset=max([int(re.search(r"_s([0-9]*)m",key).group(1)) for key in keys if re.search(r"_s([0-9]*)m",key)])
+        for i in range(maxset+1):
             memberkeys=[key for key in keys if key.startswith(histname+"_s{}m".format(i))]
-            if len(memberkeys)==0:
-                break
             hists+=[[fin.Get(key) for key in memberkeys]]
         
         self.hist=hists[0][0].Clone(histname)
