@@ -7,10 +7,11 @@ def calc_eff(valp,valf,errp=None,errf=None):
     eff=valp/(valp+valf)
     if errp is None and errf is None:
         return eff
-    ## FIXME more precise error formular 
-    ## at https://root.cern.ch/doc/master/TH1_8cxx_source.html#l03026
-    ## but need to understand. use naive one for now
-    err=math.sqrt(eff*(1-eff)*(errp**2+errf**2)/(valp+valf)**2)
+    ## From egamma tnp tool
+    ## seems to equivalent to ROOT formular at https://root.cern.ch/doc/master/TH1_8cxx_source.html#l03026
+    err = 1/(valp+valf)**2*math.sqrt(errp*errp*valf*valf+errf*errf*valp*valp)
+    ### old naive error
+    ## err=math.sqrt(eff*(1-eff)*(errp**2+errf**2)/(valp+valf)**2)
     return eff,err
 
 def calc_eff_from_hist(hpass,hfail,xmin=None,xmax=None):
