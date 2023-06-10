@@ -29,18 +29,30 @@ def calc_eff_from_hist(hpass,hfail,xmin=None,xmax=None):
     errf=errf.value
     return calc_eff(valp,valf,errp,errf)
 
+def get_integral_and_error(h,xmin=None,xmax=None):
+    ixmin,ixmax=0,-1
+    if xmin is not None and xmax is not None:
+        ixmin=h.FindBin(xmin)
+        ixmax=h.FindBin(xmax)
+        if abs(xmax-h.GetBinLowEdge(ixmax))<h.GetBinWidth(ixmax)*1e-5:
+            ixmax-=1
+    err=ctypes.c_double(0.)
+    val=h.IntegralAndError(ixmin,ixmax,err)
+    err=err.value
+    return val,err
+
 #from ROOT import tnpFitter
 class tnpFitter(object):
     def __init__(self,config):
         self.config=config.clone()
         rt.gROOT.SetBatch(1)
+        rt.TH1.SetDefaultSumw2(1)
         rt.RooMsgService.instance().setGlobalKillBelow(rt.RooFit.ERROR)
         
     def run(self,ibin):
         print "Fit ibin =",ibin
         config=self.config
         method=config.method.split()
-        isFit="fit" in method
         
         work=rt.RooWorkspace("w")
         work.factory("x[{},{}]".format(config.hist_range[0],config.hist_range[1]))
@@ -49,6 +61,7 @@ class tnpFitter(object):
         histFail=config.get_hist(ibin,False,genmatching="genmatching" in method,genmass="genmass" in method)
         work.Import(rt.RooDataHist("histPass","histPass",x,histPass))
         work.Import(rt.RooDataHist("histFail","histFail",x,histFail))
+        isFit="fit" in method and histPass.GetEffectiveEntries()>100 and histFail.GetEffectiveEntries()>100
 
         if isFit:
             sim_config=config.clone(isSim=True)
@@ -73,38 +86,37 @@ class tnpFitter(object):
                 else:
                     work.factory(line)
 
-
-            ## sideband fit 
-            x.setRange("fit_range",config.fit_range[0],config.fit_range[1])
-            x.setRange("sideband_low",config.fit_range[0],76.)
-            x.setRange("sideband_high",106.,config.fit_range[1])
-            x.setRange("peak",76.,106.)
-            resultPassSideband=work.pdf("bkgPass").fitTo(work.data("histPass"),rt.RooFit.Range("sideband_low,sideband_high"),rt.RooFit.Save(True),rt.RooFit.PrintLevel(-1),rt.RooFit.Minimizer("Minuit2","migrad"),rt.RooFit.Strategy(2))
-            resultFailSideband=work.pdf("bkgFail").fitTo(work.data("histFail"),rt.RooFit.Range("sideband_low,sideband_high"),rt.RooFit.Save(True),rt.RooFit.PrintLevel(-1),rt.RooFit.Minimizer("Minuit2","migrad"),rt.RooFit.Strategy(2))
-
-            xarg=rt.RooArgSet(x)
-            bin_fit_range0=histPass.FindBin(config.fit_range[0])
-            bin_fit_range1=histPass.FindBin(config.fit_range[1])
-            bin_peak_range0=histPass.FindBin(76)
-            bin_peak_range1=histPass.FindBin(106)
-            intePass_sideband_low=work.pdf("bkgPass").createIntegral(xarg,rt.RooFit.NormSet(xarg),rt.RooFit.Range("sideband_low")).getVal()
-            intePass_sideband_high=work.pdf("bkgPass").createIntegral(xarg,rt.RooFit.NormSet(xarg),rt.RooFit.Range("sideband_high")).getVal()
-            intePass_peak=work.pdf("bkgPass").createIntegral(xarg,rt.RooFit.NormSet(xarg),rt.RooFit.Range("peak")).getVal()
-            inteFail_sideband_low=work.pdf("bkgFail").createIntegral(xarg,rt.RooFit.NormSet(xarg),rt.RooFit.Range("sideband_low")).getVal()
-            inteFail_sideband_high=work.pdf("bkgFail").createIntegral(xarg,rt.RooFit.NormSet(xarg),rt.RooFit.Range("sideband_high")).getVal()
-            inteFail_peak=work.pdf("bkgFail").createIntegral(xarg,rt.RooFit.NormSet(xarg),rt.RooFit.Range("peak")).getVal()
-
-            work.factory("nBkgP[{},0.5,{}]".format( (intePass_sideband_low+intePass_sideband_high+intePass_peak)/intePass_sideband_high*histPass.Integral(bin_peak_range1,bin_fit_range1-1),
-                                                    histPass.Integral()*2) )
-            work.factory("nSigP[{},0.5,{}]".format( histPass.Integral(bin_fit_range0,bin_fit_range1-1)-work.var("nBkgP").getVal(),
-                                                    histPass.Integral()*2) )
-            work.factory("nBkgF[{},0.5,{}]".format( (inteFail_sideband_low+inteFail_sideband_high+inteFail_peak)/inteFail_sideband_high*histFail.Integral(bin_peak_range1,bin_fit_range1-1),
-                                                    histFail.Integral()*2) )
-            work.factory("nSigF[{},0.5,{}]".format( histFail.Integral(bin_fit_range0,bin_fit_range1-1)-work.var("nBkgF").getVal(),
-                                                    histPass.Integral()*2) )
+            work.factory("nBkgP[{},0.5,{}]".format( histPass.Integral()*0.5, histPass.Integral()*2) )
+            work.factory("nSigP[{},0.5,{}]".format( histPass.Integral()*0.5, histPass.Integral()*2) )
+            work.factory("nBkgF[{},0.5,{}]".format( histFail.Integral()*0.5, histFail.Integral()*2) )
+            work.factory("nSigF[{},0.5,{}]".format( histFail.Integral()*0.5, histFail.Integral()*2) )
             work.factory("SUM::pdfPass(nSigP*sigPass,nBkgP*bkgPass)")
             work.factory("SUM::pdfFail(nSigF*sigFail,nBkgF*bkgFail)")
-            
+
+            ## ranges
+            x.setRange("fit_range",config.fit_range[0],config.fit_range[1])
+            if not hasattr(config,"count_range") or config.count_range is None:
+                config.count_range=(config.fit_range[0],config.fit_range[1])
+            x.setRange("count_range",config.count_range[0],config.count_range[1])
+            xarg=rt.RooArgSet(x)        
+
+            ## initial fit
+            result=work.pdf("sigPass").fitTo(work.data("histPass_genmatching"),rt.RooFit.Range("fit_range"),rt.RooFit.Save(True),rt.RooFit.PrintLevel(-1),rt.RooFit.Minimizer("Minuit2","migrad"))
+            tofix=[par.GetName() for par in result.floatParsFinal()]
+            for parname in tofix:
+                work.var(parname).setConstant(True)
+            result=work.pdf("pdfPass").fitTo(work.data("histPass"),rt.RooFit.Range("fit_range"),rt.RooFit.Save(True),rt.RooFit.PrintLevel(-1),rt.RooFit.Minimizer("Minuit2","migrad"))
+            for parname in tofix:
+                work.var(parname).setConstant(False)
+
+            result=work.pdf("sigFail").fitTo(work.data("histFail_genmatching"),rt.RooFit.Range("fit_range"),rt.RooFit.Save(True),rt.RooFit.PrintLevel(-1),rt.RooFit.Minimizer("Minuit2","migrad"))
+            tofix=[par.GetName() for par in result.floatParsFinal()]
+            for parname in tofix:
+                work.var(parname).setConstant(True)
+            result=work.pdf("pdfFail").fitTo(work.data("histFail"),rt.RooFit.Range("fit_range"),rt.RooFit.Save(True),rt.RooFit.PrintLevel(-1),rt.RooFit.Minimizer("Minuit2","migrad"))
+            for parname in tofix:
+                work.var(parname).setConstant(False)
+                            
             if hasattr(config,"option") and "saveprefit" in config.option:
                 plotPass_init=x.frame(config.hist_range[0],config.hist_range[1]);
                 plotFail_init=x.frame(config.hist_range[0],config.hist_range[1]);
@@ -158,40 +170,47 @@ class tnpFitter(object):
             fit_valp=work.var("nSigP").getVal()
             fit_errp=work.var("nSigP").getError()
             ## fit errors should be scaled. See comment on fitTo function.
-            if histPass.GetEffectiveEntries(): 
-                fit_errp*=(histPass.Integral()/histPass.GetEffectiveEntries())**0.5
-                ## prevent from unreasonably small error
-                fit_errp=max(fit_errp,fit_valp/histPass.GetEffectiveEntries()**0.5)
+            fit_errp*=(histPass.Integral()/histPass.GetEffectiveEntries())**0.5
+            ## prevent from unreasonably small error
+            if resultPass.status()!=0:
+                naive_err=(fit_valp+histPass.Integral())**0.5
+                naive_err*=(histPass.Integral()/histPass.GetEffectiveEntries())**0.5
+                fit_errp=max(fit_errp,naive_err)
             fit_valf=work.var("nSigF").getVal()
             fit_errf=work.var("nSigF").getError()
             ## fit errors should be scaled. See comment on fitTo function.
-            if histFail.GetEffectiveEntries(): 
-                fit_errf*=(histFail.Integral()/histFail.GetEffectiveEntries())**0.5
-                ## prevent from unreasonably small error
-                fit_errf=max(fit_errf,fit_valf/histFail.GetEffectiveEntries()**0.5)
-            fit_eff,fit_err=calc_eff(fit_valp,fit_valf,fit_errp,fit_errf)
+            fit_errf*=(histFail.Integral()/histFail.GetEffectiveEntries())**0.5
+            ## prevent from unreasonably small error
+            if resultFail.status()!=0:
+                naive_err=(fit_valf+histFail.Integral())**0.5
+                naive_err*=(histFail.Integral()/histFail.GetEffectiveEntries())**0.5
+                fit_errf=max(fit_errf,naive_err)
+            
+            resultPass.floatParsFinal().find("nSigP").setError(fit_errp)
+            resultFail.floatParsFinal().find("nSigF").setError(fit_errf)
+
+            ## count events within fit range
+            fracPass=work.pdf("sigPass").createIntegral(xarg,rt.RooFit.NormSet(xarg),rt.RooFit.Range("fit_range")).getVal()
+            fit_valp_fit_range=fit_valp*fracPass
+            fit_errp_fit_range=fit_errp*fracPass
+            fracFail=work.pdf("sigFail").createIntegral(xarg,rt.RooFit.NormSet(xarg),rt.RooFit.Range("fit_range")).getVal()
+            fit_valf_fit_range=fit_valf*fracFail
+            fit_errf_fit_range=fit_errf*fracFail
+            
+            fit_eff,fit_err=calc_eff(fit_valp_fit_range,fit_valf_fit_range,fit_errp_fit_range,fit_errf_fit_range)
             text1.AddText("fit_eff[{},{}] = {:.4f} #pm {:.4f}".format(config.fit_range[0],config.fit_range[1],fit_eff,fit_err))
-            if hasattr(config,"count_range") and getattr(config,"count_range"):
-                xarg=rt.RooArgSet(x)        
-                x.setRange("count_range",config.count_range[0],config.count_range[1])
-                sigPass_count_range=work.pdf("sigPass").createIntegral(xarg,rt.RooFit.NormSet(xarg),rt.RooFit.Range("count_range")).getVal()
-                sigPass_fit_range=work.pdf("sigPass").createIntegral(xarg,rt.RooFit.NormSet(xarg),rt.RooFit.Range("fit_range")).getVal()
-                fracPass=sigPass_count_range/sigPass_fit_range if sigPass_fit_range else 1.
-                sigFail_count_range=work.pdf("sigFail").createIntegral(xarg,rt.RooFit.NormSet(xarg),rt.RooFit.Range("count_range")).getVal()
-                sigFail_fit_range=work.pdf("sigFail").createIntegral(xarg,rt.RooFit.NormSet(xarg),rt.RooFit.Range("fit_range")).getVal()
-                fracFail=sigFail_count_range/sigFail_fit_range if sigFail_fit_range else 1.
-                fit_valp=fit_valp*fracPass
-                fit_errp=fit_errp/math.sqrt(fracPass)
-                fit_valf=fit_valf*fracFail
-                fit_errf=fit_errf/math.sqrt(fracFail)
-                fit_eff,fit_err=calc_eff(fit_valp,fit_valf,fit_errp,fit_errf)
+            if config.fit_range[0]!=config.count_range[0] or config.fit_range[1]!=config.count_range[1]:
+                fracPass=work.pdf("sigPass").createIntegral(xarg,rt.RooFit.NormSet(xarg),rt.RooFit.Range("count_range")).getVal()
+                fit_valp_count_range=fit_valp*fracPass
+                fit_errp_count_range=fit_errp*fracPass
+                fracFail=work.pdf("sigFail").createIntegral(xarg,rt.RooFit.NormSet(xarg),rt.RooFit.Range("count_range")).getVal()
+                fit_valf_count_range=fit_valf*fracFail
+                fit_errf_count_range=fit_errf*fracFail
+                fit_eff,fit_err=calc_eff(fit_valp_count_range,fit_valf_count_range,fit_errp_count_range,fit_errf_count_range)
                 text1.AddText("fit_eff[{},{}] = {:.4f} #pm {:.4f}".format(config.count_range[0],config.count_range[1],fit_eff,fit_err))
                 
-        count_eff,count_err=calc_eff_from_hist(histPass,histFail)
-        text1.AddText("count_eff[{},{}] = {:.4f} #pm {:.4f}".format(config.hist_range[0],config.hist_range[1],count_eff,count_err))
-        if hasattr(config,"count_range") and getattr(config,"count_range"):
-            count_eff,count_err=calc_eff_from_hist(histPass,histFail,config.count_range[0],config.count_range[1])
-            text1.AddText("count_eff[{},{}] = {:.4f} #pm {:.4f}".format(config.count_range[0],config.count_range[1],count_eff,count_err))
+        count_eff,count_err=calc_eff_from_hist(histPass,histFail,config.count_range[0],config.count_range[1])
+        text1.AddText("count_eff[{},{}] = {:.4f} #pm {:.4f}".format(config.count_range[0],config.count_range[1],count_eff,count_err))
         
         text2=rt.TPaveText(0,0,1,0.6)
         text2.SetName("parameters")
@@ -204,10 +223,14 @@ class tnpFitter(object):
                 text2.AddText("{} \t= {:.3f} #pm {:.3f}".format(par.GetName(),par.getVal(),par.getError()))
             for par in resultPass.constPars():
                 text2.AddText("{} \t= {:.3f} [Fixed]".format(par.GetName(),par.getVal()))
+            val,err=get_integral_and_error(histPass,config.fit_range[0],config.fit_range[1])
+            text2.AddText("IntegralPass \t= {:.3f} #pm {:.3f}".format(val,err))
             for par in resultFail.floatParsFinal():
                 text2.AddText("{} \t= {:.3f} #pm {:.3f}".format(par.GetName(),par.getVal(),par.getError()))
             for par in resultFail.constPars():
                 text2.AddText("{} \t= {:.3f} [Fixed]".format(par.GetName(),par.getVal()))
+            val,err=get_integral_and_error(histFail,config.fit_range[0],config.fit_range[1])
+            text2.AddText("IntegralFail \t= {:.3f} #pm {:.3f}".format(val,err))
 
 
         text_eff=rt.TPaveText(0,0.9,1,1)
@@ -250,65 +273,11 @@ class tnpFitter(object):
         return
 
     def fit_hist(self,function,hist,work,norm=None):
-        ## first try
         for i in range(5):
             ## SumW2Error or AsymptoticError can be used. but it seems to make the fitting unstable. Instead just scale the uncertainty later
             result=function.fitTo(hist,rt.RooFit.Range(self.config.fit_range[0],self.config.fit_range[1]),rt.RooFit.Save(True),rt.RooFit.PrintLevel(-1),rt.RooFit.Minimizer("Minuit2","migrad"),rt.RooFit.Strategy(2))
-            nSig=result.floatParsFinal().find("nSigP") or result.floatParsFinal().find("nSigF")
-            nBkg=result.floatParsFinal().find("nBkgP") or result.floatParsFinal().find("nBkgF")
-            ## prevent 0 nSig
-            if nSig and nSig.getVal()<5.:
-                work.var(nSig.GetName()).setVal(100)
-                continue
-            ## prevent 0 nBkg
-            if nBkg and nBkg.getVal()<5.:
-                work.var(nBkg.GetName()).setVal(100)
-                continue
             if result.status()==0:
                 return result
 
-        if nSig and nBkg and norm and False:
-            minnll=None
-            for i in range(1,20):
-                frac=(20-i)/20.
-                work.var(nSig.GetName()).setVal(frac*norm)
-                work.var(nBkg.GetName()).setVal((1-frac)*norm)
-                result=function.fitTo(hist,rt.RooFit.Range(self.config.fit_range[0],self.config.fit_range[1]),rt.RooFit.Save(True),rt.RooFit.PrintLevel(-1),rt.RooFit.Minimizer("Minuit2","migrad"),rt.RooFit.Strategy(2))
-                nSig_init=result.floatParsInit().find("nSigP") or result.floatParsFinal().find("nSigF")
-                nBkg_init=result.floatParsInit().find("nBkgP") or result.floatParsFinal().find("nBkgF")
-                nSig=result.floatParsFinal().find("nSigP") or result.floatParsFinal().find("nSigF")
-                nBkg=result.floatParsFinal().find("nBkgP") or result.floatParsFinal().find("nBkgF")
-                if nSig_init and nBkg_init:
-                    print(i,"init:",nSig_init.getVal(),nBkg_init.getVal())
-                    print(i,"final:",nSig.getVal(),nBkg.getVal())
-                ## prevent 0 nSig
-                if nSig and nSig.getVal()<1.:
-                    continue
-                ## prevent 0 nBkg
-                if nBkg and nBkg.getVal()<1.:
-                    continue
-                if result.status()==0:
-                    thisnll=result.minNll()
-                    if minnll is None or thisnll<minnll:
-                        minnll=thisnll
-                        minfrac=frac
-            if minnll:
-                work.var(nSig.GetName()).setVal(minfrac*norm)
-                work.var(nBkg.GetName()).setVal((1-minfrac)*norm)
-                for i in range(5):
-                    result=function.fitTo(hist,rt.RooFit.Range(self.config.fit_range[0],self.config.fit_range[1]),rt.RooFit.Save(True),rt.RooFit.PrintLevel(-1),rt.RooFit.Minimizer("Minuit2","migrad"),rt.RooFit.Strategy(2))
-                    nSig=result.floatParsFinal().find("nSigP") or result.floatParsFinal().find("nSigF")
-                    nBkg=result.floatParsFinal().find("nBkgP") or result.floatParsFinal().find("nBkgF")
-                    ## prevent 0 nSig
-                    if nSig and nSig.getVal()<1.:
-                        work.var(nSig.GetName()).setVal(100)
-                        continue
-                    ## prevent 0 nBkg
-                    if nBkg and nBkg.getVal()<1.:
-                        work.var(nBkg.GetName()).setVal(100)
-                        continue
-                    if result.status()==0:
-                        return result
-            
         print "Warning: non-zero fit status {}".format(result.status())
         return result

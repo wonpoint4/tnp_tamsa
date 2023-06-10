@@ -170,6 +170,7 @@ def Find(lobj,name=None,title=None,classname=None):
     return None
 
 def GetSystematicPlot(filename,axis="x",ibin=None,ymin=None):
+    colors=[ROOT.kBlack,ROOT.kRed,ROOT.kGreen,ROOT.kBlue,ROOT.kYellow,ROOT.kMagenta,ROOT.kCyan,ROOT.kGray,ROOT.kPink+1,ROOT.kSpring+1,ROOT.kAzure+1,ROOT.kOrange+1,ROOT.kViolet+1,ROOT.kTeal+1,ROOT.kWhite]
     c=ROOT.TCanvas()
     c.Divide(1,4)
     c.GetPad(1).SetPad(0,0.12+0.26*2,1,1)
@@ -211,7 +212,7 @@ def GetSystematicPlot(filename,axis="x",ibin=None,ymin=None):
         hists+=[hist.Clone("stat")]
         for iset,imem in h.GetStructure()[1:]:
             hist=h.MakeTH(iset=iset,imem=imem)
-            hist.SetLineColor(iset+1)
+            hist.SetLineColor(colors[iset])
             hist.SetLineWidth(2)
             hists+=[hist.Clone("s{}m{}".format(iset,imem))]
         
