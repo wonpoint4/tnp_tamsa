@@ -57,23 +57,40 @@ class tnpFitter(object):
         work=rt.RooWorkspace("w")
         work.factory("x[{},{}]".format(config.hist_range[0],config.hist_range[1]))
         x=work.var("x")
-        histPass=config.get_hist(ibin,True,genmatching="genmatching" in method,genmass="genmass" in method)
-        histFail=config.get_hist(ibin,False,genmatching="genmatching" in method,genmass="genmass" in method)
+        matched=True if "genmatching" in method else None
+        histPass=config.get_hist(ibin,True,genmatching=matched,genmass="genmass" in method)
+        histFail=config.get_hist(ibin,False,genmatching=matched,genmass="genmass" in method)
+        if not histPass:
+            print "No hist "+config.get_histname(ibin,True,genmatching=matched,genmass="genmass" in method)+" in "+config.hist_file
+            exit(1)
+        if not histFail:
+            print "No hist "+config.get_histname(ibin,True,genmatching=matched,genmass="genmass" in method)+" in "+config.hist_file
+            exit(1)
         work.Import(rt.RooDataHist("histPass","histPass",x,histPass))
         work.Import(rt.RooDataHist("histFail","histFail",x,histFail))
-        isFit="fit" in method and histPass.GetEffectiveEntries()>100 and histFail.GetEffectiveEntries()>100
+        isFit=False
+        if "softfit" in method:
+            if histPass.GetEffectiveEntries()>100 and histFail.GetEffectiveEntries()>100:
+                isFit=True
+        elif "fit" in method:
+            isFit=True
+
+        ## count_range
+        if not hasattr(config,"count_range") or config.count_range is None:
+            config.count_range=(config.fit_range[0],config.fit_range[1])
+        x.setRange("count_range",config.count_range[0],config.count_range[1])
 
         if isFit:
             sim_config=config.clone(isSim=True)
             for spass in ["Pass","Fail"]:
-                for smatched in ["_genmatching",""]:
+                for smatched,matched in [["_genmatching",True],["_notgenmatching",False],["",None]]:
                     for sgen in ["_genmass",""]:
                         for srandom in ["_random",""]:
                             key="hist"+spass+smatched+sgen+srandom
                             if key in ["histPass","histFail"]: 
                                 continue
-                            if key in " ".join(config.fit_parameter):
-                                hist=sim_config.get_hist(ibin,isPass=spass=="Pass",genmatching=smatched=="_genmatching",genmass=sgen=="_genmass",random=hash(config.path+str(ibin)) if srandom=="_random" else None)
+                            if key in " ".join(config.fit_parameter) or key in ["histPass_genmatching","histFail_genmatching","histPass_notgenmatching","histFail_notgenmatching"]:
+                                hist=sim_config.get_hist(ibin,isPass=spass=="Pass",genmatching=matched,genmass=sgen=="_genmass",random=hash(config.path+str(ibin)) if srandom=="_random" else None)
                                 work.Import(rt.RooDataHist(key,key,x,hist))
 
             for line in config.fit_parameter:
@@ -93,29 +110,19 @@ class tnpFitter(object):
             work.factory("SUM::pdfPass(nSigP*sigPass,nBkgP*bkgPass)")
             work.factory("SUM::pdfFail(nSigF*sigFail,nBkgF*bkgFail)")
 
-            ## ranges
+            ## fit_range
             x.setRange("fit_range",config.fit_range[0],config.fit_range[1])
-            if not hasattr(config,"count_range") or config.count_range is None:
-                config.count_range=(config.fit_range[0],config.fit_range[1])
-            x.setRange("count_range",config.count_range[0],config.count_range[1])
             xarg=rt.RooArgSet(x)        
 
             ## initial fit
-            result=work.pdf("sigPass").fitTo(work.data("histPass_genmatching"),rt.RooFit.Range("fit_range"),rt.RooFit.Save(True),rt.RooFit.PrintLevel(-1),rt.RooFit.Minimizer("Minuit2","migrad"))
-            tofix=[par.GetName() for par in result.floatParsFinal()]
-            for parname in tofix:
-                work.var(parname).setConstant(True)
-            result=work.pdf("pdfPass").fitTo(work.data("histPass"),rt.RooFit.Range("fit_range"),rt.RooFit.Save(True),rt.RooFit.PrintLevel(-1),rt.RooFit.Minimizer("Minuit2","migrad"))
-            for parname in tofix:
-                work.var(parname).setConstant(False)
-
-            result=work.pdf("sigFail").fitTo(work.data("histFail_genmatching"),rt.RooFit.Range("fit_range"),rt.RooFit.Save(True),rt.RooFit.PrintLevel(-1),rt.RooFit.Minimizer("Minuit2","migrad"))
-            tofix=[par.GetName() for par in result.floatParsFinal()]
-            for parname in tofix:
-                work.var(parname).setConstant(True)
-            result=work.pdf("pdfFail").fitTo(work.data("histFail"),rt.RooFit.Range("fit_range"),rt.RooFit.Save(True),rt.RooFit.PrintLevel(-1),rt.RooFit.Minimizer("Minuit2","migrad"))
-            for parname in tofix:
-                work.var(parname).setConstant(False)
+            if not all([p.isConstant() for p in work.pdf("sigPass").getParameters(xarg)]):
+                result=work.pdf("sigPass").fitTo(work.data("histPass_genmatching"),rt.RooFit.Range("fit_range"),rt.RooFit.Save(True),rt.RooFit.PrintLevel(-1),rt.RooFit.Minimizer("Minuit2","migrad"))
+            if not all([p.isConstant() for p in work.pdf("bkgPass").getParameters(xarg)]):
+                result=work.pdf("bkgPass").fitTo(work.data("histPass_notgenmatching"),rt.RooFit.Range("fit_range"),rt.RooFit.Save(True),rt.RooFit.PrintLevel(-1),rt.RooFit.Minimizer("Minuit2","migrad"))
+            if not all([p.isConstant() for p in work.pdf("sigFail").getParameters(xarg)]):
+                result=work.pdf("sigFail").fitTo(work.data("histFail_genmatching"),rt.RooFit.Range("fit_range"),rt.RooFit.Save(True),rt.RooFit.PrintLevel(-1),rt.RooFit.Minimizer("Minuit2","migrad"))
+            if not all([p.isConstant() for p in work.pdf("bkgFail").getParameters(xarg)]):
+                result=work.pdf("bkgFail").fitTo(work.data("histFail_notgenmatching"),rt.RooFit.Range("fit_range"),rt.RooFit.Save(True),rt.RooFit.PrintLevel(-1),rt.RooFit.Minimizer("Minuit2","migrad"))
                             
             if hasattr(config,"option") and "saveprefit" in config.option:
                 plotPass_init=x.frame(config.hist_range[0],config.hist_range[1]);

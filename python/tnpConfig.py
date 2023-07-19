@@ -153,7 +153,7 @@ class tnpConfig(object):
                 local_ibin[ja]*=len(self.axes[ia]['bins'])-1
         return sum(local_ibin)
 
-    def get_hist(self,ibin,isPass,genmatching=False,genmass=False,random=None):
+    def get_hist(self,ibin,isPass,genmatching=None,genmass=None,random=None):
         this_hist_file=self.path+"/"+self.hist_file
         if not os.path.exists(this_hist_file):
             print "No file "+this_hist_file
@@ -171,14 +171,16 @@ class tnpConfig(object):
                     h.SetBinContent(ibin,val)
         return h
 
-    def get_histname(self,ibin,isPass,genmatching=False,genmass=False):
+    def get_histname(self,ibin,isPass,genmatching=None,genmass=None):
         histname=self.hist_prefix+self.bins[ibin]['name']
         if isPass:
             histname+="_Pass"
         else:
             histname+="_Fail"
-        if genmatching:
+        if genmatching==True:
             histname+="_genmatching"
+        elif genmatching==False:
+            histname+="_notgenmatching"
         if genmass:
             histname+="_genmass"
         return histname

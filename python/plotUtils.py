@@ -170,7 +170,7 @@ def Find(lobj,name=None,title=None,classname=None):
     return None
 
 def GetSystematicPlot(filename,axis="x",ibin=None,ymin=None):
-    colors=[ROOT.kBlack,ROOT.kRed,ROOT.kGreen,ROOT.kBlue,ROOT.kYellow,ROOT.kMagenta,ROOT.kCyan,ROOT.kGray,ROOT.kPink+1,ROOT.kSpring+1,ROOT.kAzure+1,ROOT.kOrange+1,ROOT.kViolet+1,ROOT.kTeal+1,ROOT.kWhite]
+    colors=[ROOT.kBlack,ROOT.kRed,ROOT.kGreen,ROOT.kBlue,ROOT.kYellow,ROOT.kMagenta,ROOT.kCyan,ROOT.kGray,ROOT.kPink+1,ROOT.kSpring+1,ROOT.kAzure+1,ROOT.kOrange+1,ROOT.kViolet+1,ROOT.kTeal+1,ROOT.kWhite,ROOT.kGray+1,ROOT.kGray+3]
     c=ROOT.TCanvas()
     c.Divide(1,4)
     c.GetPad(1).SetPad(0,0.12+0.26*2,1,1)
@@ -259,8 +259,8 @@ def GetSystematicPlot(filename,axis="x",ibin=None,ymin=None):
     else:
         latex.DrawLatex(0.89,0.89,"Average")            
 
-    leg=ROOT.TLegend(0.5,0.33,0.89,0.43)
-    leg.SetNColumns(2)
+    leg=ROOT.TLegend(0.16,0.33,0.89,0.43)
+    leg.SetNColumns(4)
     leg.AddEntry(Find(hists,name="total"),"total unc.","f")
     leg.AddEntry(Find(hists,name="stat"),"stat. unc.","l")
     maxset=max([s for s,m in h.GetStructure()])

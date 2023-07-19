@@ -148,19 +148,27 @@ def makePassFailHistograms( configs, njob, ijob, reduction=1 ):
     for ic in range(len(configs)):
         config=configs[ic]
         expr_formulars[ic]=ROOT.TTreeFormula('{}_expr'.format(config.hist_prefix), config.expr, tree)
-        for isPass,genmatching,genmass in [[i%2==0,(i//2)%2==1,(i//4)%2==1] for i in range(2**3)]:
-            if not config.genmatching and genmatching: continue
+        hist_types=[[isPass,genmatching,genmass] for isPass in [False,True] for genmatching in [None,False,True] for genmass in [False,True]]
+        for ih in range(len(hist_types)):
+            isPass,genmatching,genmass=hist_types[ih]
+            if not config.genmatching and genmatching is not None: continue
             if not config.genmass and genmass: continue
+            if genmatching!=True and genmass: continue
 
             if isPass: 
                 weight="({})".format(config.test)
             else:
                 weight="!({})".format(config.test)
-            if genmatching:
+            if genmatching==True:
                 weight+="*({})".format(config.genmatching)
+            elif genmatching==False:
+                if hasattr(config,"notgenmatching") and config.notgenmatching not in [None,""]:
+                    weight+="*({})".format(config.notgenmatching)
+                else:
+                    weight+="*!({})".format(config.genmatching)
             if config.weight:
                 weight+="*({})".format(config.weight)                    
-            weight_formulars[ic]+=[ROOT.TTreeFormula('c{}h{}_weight'.format(ic,i), weight, tree)]
+            weight_formulars[ic]+=[ROOT.TTreeFormula('c{}h{}_weight'.format(ic,ih), weight, tree)]
 
             if genmass:
                 xs[ic]+=[config.genmass]
@@ -172,9 +180,10 @@ def makePassFailHistograms( configs, njob, ijob, reduction=1 ):
                 hists[ic][ib]+=[ROOT.TH1D(histname,bins[ib]['title'],config.hist_nbins,config.hist_range[0],config.hist_range[1])]
 
 
-    print len(configs),len(bins),len(hists),len(hists[0]),len(hists[0][0])
+    print "Total {} hists = {} configs * {} bins * {} types".format(len(hists)*len(hists[0])*len(hists[0][0]),len(hists),len(hists[0]),len(hists[0][0]))
     notify_list=ROOT.TList()
-    for formular in expr_formulars+bin_formulars+[f for ff in weight_formulars for f in ff]:
+    for formular in expr_formulars+bin_formulars+[f for ff in weight_formulars for f in ff]+[preselection]:
+        if formular is None: continue
         notify_list.Add(formular)
     tree.SetNotify(notify_list)
 
@@ -257,11 +266,14 @@ def makePassFailHistograms( configs, njob, ijob, reduction=1 ):
                 hists[ic][ib][ih].Fill(getattr(tree,xs[ic][ih]),expr*weight)
 
     te=time.time()
-    print(te-ts)
+    print "Event loop time", te-ts, "seconds"
+    sys.stdout.flush()
     #####################
     # Deal with the Hists
     #####################
-    print(len([h for hhh in hists for hh in hhh for h in hh]))
+    ts=time.time()
+    print "Writing", len([h for hhh in hists for hh in hhh for h in hh]), "hists"
+    sys.stdout.flush()
     for hist in [h for hhh in hists for hh in hhh for h in hh]:
         dirname=os.path.dirname(hist.GetName())
         basename=os.path.basename(hist.GetName())
@@ -269,9 +281,14 @@ def makePassFailHistograms( configs, njob, ijob, reduction=1 ):
             outfile.mkdir(dirname)
         outfile.cd(dirname)
         hist.Write(basename)
+    te=time.time()
+    print "Writing time", te-ts, "seconds"
+    sys.stdout.flush()
 
     ##########
     # Clean up
     ##########
-    outfile.Close()
     tree.Delete()
+    ROOT.gROOT.GetListOfFiles().Remove(outfile)
+    outfile.Close()
+    
