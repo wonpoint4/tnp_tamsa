@@ -29,13 +29,8 @@ parser.add_argument('--ijob', '-i' , type = int, help = 'condor job index (for i
 parser.add_argument('--nmax'       , default=300, type = int, help = 'condor nmax job (concurrency limits)')
 parser.add_argument('--no-condor'  , dest = "condor", action='store_false' )
 parser.add_argument('--reduction', type = int, default=1, help='reduction in hist step')
+parser.add_argument('--dag'        , action='store_true')
 #parser.add_argument('--log'        , action='store_false'     , help = 'keep logs')
-
-parser.add_argument('--fit'   )
-parser.add_argument('--select'   , action='store_true'  )
-parser.add_argument('--sumUp'      , action='store_true'  , help = 'sum up efficiencies')
-parser.add_argument('--doDraw'     , action='store_true' )
-parser.add_argument('--doCnC'      , action='store_true' )
 
 args = parser.parse_args()
 
@@ -105,6 +100,9 @@ with open(config.path+"/config.txt","w") as f:
 
 args.njob=[int(i) for i in args.njob.split(",")]
 
+if args.dag:
+    os.system("rm -r {}/condor.dag*".format(config.path))
+
 ####################################################################
 ##### check Bins
 ####################################################################
@@ -166,20 +164,55 @@ queue {3}
 '''.format(working_dir,"n{}.{}".format(args.nmax,os.getenv("USER")),jobbatchname,njob)
             )
 
-            clusterid=submit_condor(working_dir+'/condor.jds')
-            print '  Submit', njob, 'jobs. Waiting...'
-            os.system('condor_wait '+working_dir+'/condor.log > /dev/null')
-            if not check_condor(clusterid,njob):
-                exit(1)
             outfiles=["{}/job{}.root".format(working_dir,i) for i in range(njob)]
-            exitcode=os.system('condor_run -a jobbatchname={} -a request_cpus=4 -a concurrency_limits=n32.tnphadd hadd -j 4 -f {} {} > /dev/null'.format(jobbatchname+"_hadd","/".join([hist_config[0].path,hist_config[0].hist_file]),' '.join(outfiles)))
-            if exitcode!=0:
-                print "hadd failed"
-                exit(exitcode)
-            os.system('rm {}'.format(" ".join(outfiles)))
-            if not args.log:
-                os.system("rm -r "+working_dir)
-            histUtils.postProcess("/".join([hist_config[0].path,hist_config[0].hist_file]))
+
+            open(working_dir+'/hadd.jds','w').write(
+'''executable = /usr/bin/env
+arguments = hadd -j 4 -f {hadd_target} {hadd_source}
+output = {working_dir}/hadd.out
+error = {working_dir}/hadd.err
+log = {working_dir}/hadd.log
+request_cpus = 4
+request_memory = 1500
+concurrency_limits = n32.tnphadd
+jobbatchname = {name}
+getenv = True
+queue
+'''.format(hadd_target="/".join([hist_config[0].path,hist_config[0].hist_file]),
+           hadd_source=' '.join(outfiles),
+           working_dir=working_dir,
+           name=jobbatchname+"_hadd",)
+            )
+            
+            if args.dag:
+                open(config.path+"/condor.dag","a").write(
+'''
+JOB {histjobname} {histjds}
+JOB {haddjobname} {haddjds}
+PARENT {histjobname} CHILD {haddjobname}
+PARENT {haddjobname} CHILD hists_done
+'''
+                    .format(histjobname=hist_config[0].hist_file.split(".",1)[0],
+                            histjds=working_dir+'/condor.jds',
+                            haddjobname=hist_config[0].hist_file.split(".",1)[0]+"_hadd",
+                            haddjds=working_dir+'/hadd.jds',
+                        )
+                )
+            else:
+                clusterid=submit_condor(working_dir+'/condor.jds')
+                print '  Submit', njob, 'jobs. Waiting...'
+                os.system('condor_wait '+working_dir+'/condor.log > /dev/null')
+                if not check_condor(clusterid,njob):
+                    exit(1)
+                clusterid=submit_condor(working_dir+'/hadd.jds')
+                print '  Submit hadd job. Waiting...'
+                os.system('condor_wait '+working_dir+'/hadd.log > /dev/null')
+                if not check_condor(clusterid,1):
+                    exit(1)
+                os.system('rm {}'.format(" ".join(outfiles)))
+                if not args.log:
+                    os.system("rm -r "+working_dir)
+                histUtils.postProcess("/".join([hist_config[0].path,hist_config[0].hist_file]))
 
 ####################################################################
 ##### Actual Fitter
@@ -232,14 +265,28 @@ queue arguments from (
 )
 '''.format(working_dir,"n{}.{}".format(args.nmax,os.getenv("USER")),jobbatchname,"\n".join(condor_arguments))
                     )
-                    print '[Fitting] {} {}'.format(c.fit_file.split(".",1)[0],c.name)
-                    clusterid=submit_condor(working_dir+'/condor.jds')
-                    condorlogs[clusterid]=working_dir+'/condor.log'
-        print '  Waiting...'
-        for clusterid in condorlogs:
-            os.system('condor_wait '+condorlogs[clusterid]+' > /dev/null')
-            if not check_condor(clusterid,njob):
-                exit(1)
+                    
+                    if args.dag:
+                        open(config.path+"/condor.dag","a").write(
+'''
+JOB {jobname} {jds}
+PARENT hists_done CHILD {jobname}
+PARENT {jobname} CHILD fits_done
+'''
+                            .format(jobname=c.fit_file.split(".",1)[0]+"_"+c.name,
+                                    jds=working_dir+'/condor.jds',
+                                )
+                        )
+                    else:
+                        print '[Fitting] {} {}'.format(c.fit_file.split(".",1)[0],c.name)
+                        clusterid=submit_condor(working_dir+'/condor.jds')
+                        condorlogs[clusterid]=working_dir+'/condor.log'
+        if not args.dag:
+            print '  Waiting...'
+            for clusterid in condorlogs:
+                os.system('condor_wait '+condorlogs[clusterid]+' > /dev/null')
+                if not check_condor(clusterid,njob):
+                    exit(1)
 
 ####################################################################
 ##### dumping plots
@@ -268,64 +315,90 @@ queue arguments from (
 #flag=tnpConf.flags[args.flag]
 #flag.fitFile='%s/%s_fit.root' % ( outputDirectory,args.flag )
 if "sum" in args.step:
-    from efficiencyUtils import make_combined_hist
-    print '[Summary] collectFits {}'.format(config.data_fit_file)
-    #exitcode=os.system("python python/collectFits.py {0}/{1} $(find {0}/{2} -type f -name '*.root'|sort -V) > /dev/null 2>&1".format(config.path,config.data_fit_file,config.data_fit_file.replace(".root",".d")))
-    exitcode=os.system("python python/collectFits.py {0}/{1} {0}/{2}".format(config.path,config.data_fit_file,config.data_fit_file.replace(".root",".d")))
-    if exitcode!=0:
-        print "hadd failed (exit {})".format(exitcode)
-        exit(exitcode)
-    print '[Summary] collectFits {}'.format(config.sim_fit_file)
-    #exitcode=os.system("python python/collectFits.py {0}/{1} $(find {0}/{2} -type f -name '*.root'|sort -V) > /dev/null 2>&1".format(config.path,config.sim_fit_file,config.sim_fit_file.replace(".root",".d")))
-    exitcode=os.system("python python/collectFits.py {0}/{1} {0}/{2}".format(config.path,config.sim_fit_file,config.sim_fit_file.replace(".root",".d")))
-    if exitcode!=0:
-        print "hadd failed"
-        exit(exitcode)
+    if args.dag:
+        open(config.path+"/condor.dag","a").write(
+'''
+SCRIPT POST fits_done {tnp_base}/tnp_tamsa.py {configfile} {configkey} --step sum
+'''
+            .format(tnp_base=os.environ["TNP_BASE"],
+                    configfile=args.settings,
+                    configkey=args.config)
+        )
+    else:
+        from efficiencyUtils import make_combined_hist
+        print '[Summary] collectFits {}'.format(config.data_fit_file)
+        #exitcode=os.system("python $TNP_BASE/python/collectFits.py {0}/{1} $(find {0}/{2} -type f -name '*.root'|sort -V) > /dev/null 2>&1".format(config.path,config.data_fit_file,config.data_fit_file.replace(".root",".d")))
+        exitcode=os.system("python $TNP_BASE/python/collectFits.py {0}/{1} {0}/{2}".format(config.path,config.data_fit_file,config.data_fit_file.replace(".root",".d")))
+        if exitcode!=0:
+            print "hadd failed (exitcode={})".format(exitcode)
+            exit(1)
+        print '[Summary] collectFits {}'.format(config.sim_fit_file)
+        #exitcode=os.system("python $TNP_BASE/python/collectFits.py {0}/{1} $(find {0}/{2} -type f -name '*.root'|sort -V) > /dev/null 2>&1".format(config.path,config.sim_fit_file,config.sim_fit_file.replace(".root",".d")))
+        exitcode=os.system("python $TNP_BASE/python/collectFits.py {0}/{1} {0}/{2}".format(config.path,config.sim_fit_file,config.sim_fit_file.replace(".root",".d")))
+        if exitcode!=0:
+            print "hadd failed (exitcode={})".format(exitcode)
+            exit(1)
 
-    hists=[]
+        hists=[]
 
-    data_hists=[]
-    for members in config.make_systematics(isSim=False):
-        hist_set=[]
-        for member in members:
-            hist_set+=[member.make_eff_hist()]
-        data_hists+=[hist_set]
-    hists+=[make_combined_hist(data_hists)]
-    hists+=[make_combined_hist(data_hists,stat=False)]
-    hists+=[h for ms in data_hists for h in ms]
+        data_hists=[]
+        for members in config.make_systematics(isSim=False):
+            hist_set=[]
+            for member in members:
+                hist_set+=[member.make_eff_hist()]
+            data_hists+=[hist_set]
+        hists+=[make_combined_hist(data_hists)]
+        hists+=[make_combined_hist(data_hists,stat=False)]
+        hists+=[h for ms in data_hists for h in ms]
 
-    sim_hists=[]
-    for members in config.make_systematics(isSim=True):
-        hist_set=[]
-        for member in members:
-            hist_set+=[member.make_eff_hist()]
-        sim_hists+=[hist_set]
-    hists+=[make_combined_hist(sim_hists)]
-    hists+=[make_combined_hist(sim_hists,stat=False)]
-    hists+=[h for ms in sim_hists for h in ms]
+        sim_hists=[]
+        for members in config.make_systematics(isSim=True):
+            hist_set=[]
+            for member in members:
+                hist_set+=[member.make_eff_hist()]
+            sim_hists+=[hist_set]
+        hists+=[make_combined_hist(sim_hists)]
+        hists+=[make_combined_hist(sim_hists,stat=False)]
+        hists+=[h for ms in sim_hists for h in ms]
 
-    sf_hists=[[h.Clone(h.GetName().replace("data_","sf_")) for h in members] for members in data_hists]
-    for i in range(len(sf_hists)):
-        for j in range(len(sf_hists[i])):
-            sf_hists[i][j].Divide(sim_hists[i][j])
-    hists+=[make_combined_hist(sf_hists)]
-    hists+=[make_combined_hist(sf_hists,stat=False)]
-    hists+=[h for ms in sf_hists for h in ms]
-    
-    f=rt.TFile(config.path+"/efficiency.root","recreate")
-    for h in hists:
-        h.Write()
-    f.Close()
+        sf_hists=[[h.Clone(h.GetName().replace("data_","sf_")) for h in members] for members in data_hists]
+        for i in range(len(sf_hists)):
+            for j in range(len(sf_hists[i])):
+                sf_hists[i][j].Divide(sim_hists[i][j])
+        hists+=[make_combined_hist(sf_hists)]
+        hists+=[make_combined_hist(sf_hists,stat=False)]
+        hists+=[h for ms in sf_hists for h in ms]
 
-    print '[Summary] Save plots'
-    from plotUtils import SavePlots
-    SavePlots(config.path+"/efficiency.root")
+        f=rt.TFile(config.path+"/efficiency.root","recreate")
+        for h in hists:
+            h.Write()
+        f.Close()
 
-    if "fix_ptbelow20" in config.option:
-        print '[Summary] post-process for "fix_ptbelow20"'
-        from PostProcess_fix_ptbelow20 import PostProcess_fix_ptbelow20
-        PostProcess_fix_ptbelow20(config.path+"/efficiency.root")
+        print '[Summary] Save plots'
+        from plotUtils import SavePlots
+        SavePlots(config.path+"/efficiency.root")
+
+        if "fix_ptbelow20" in config.option:
+            print '[Summary] post-process for "fix_ptbelow20"'
+            from PostProcess_fix_ptbelow20 import PostProcess_fix_ptbelow20
+            PostProcess_fix_ptbelow20(config.path+"/efficiency.root")
+
+
+if args.dag:
+    open(config.path+"/condor.dag","a").write(
+'''
+JOB hists_done noop.sub NOOP
+JOB fits_done noop.sub NOOP
+'''
+    )
         
+    exitcode=os.system("condor_submit_dag {}/condor.dag".format(config.path))
+    if exitcode==0:
+        print "Check dag log"
+        print "tail -f {}/condor.dag.dagman.out".format(config.path)
+    else:
+        print "condor_submit_dag failed"
+
 endTime=time.time()
 print 'Ends at ', time.strftime('%c',time.localtime(endTime))
 print 'Time took', endTime-startTime,'seconds.'
