@@ -37,3 +37,8 @@ The parameters for tnpConfig class are listed below. The parameters can be prefi
 - **count_range**: Mass range for the efficiency evaluation. It could be different from **fit_range**.
 - **option**: extra options separated by space; 'saveprefit', 'fix_below20'
 - **systematic**: Definition of systematic variations.
+
+## Notes for LXPLUS
+- Clone this into afs, as condor jobs cannot be submitted from eos.
+- Setup script will make output directory on eos home and a symbolic link to it (*$TNP_BASE/results* -> */eos/user/?/$USER/tnp_tamsa_output*)
+- Use --dag option if you cannot keep the shell connection

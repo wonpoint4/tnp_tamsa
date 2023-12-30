@@ -11,6 +11,13 @@ TNP_BASE=os.getenv("TNP_BASE")
 if TNP_BASE is None or TNP_BASE=="":
     print("[tnp_tamsa] Please source setup.sh")
     exit(1)
+HOSTNAME=os.popen('hostname').read().strip()
+if "lxplus" in HOSTNAME:
+    HOST="lxplus"
+elif "tamsa" in HOSTNAME:
+    HOST="tamsa"
+else:
+    print("[tnp_tamsa] Unknown host {}. It may not work".format(HOSTNAME))
 
 parser = argparse.ArgumentParser(description='tnp EGM fitter')
 parser.add_argument('settings'     , help = 'setting file [mandatory]')
@@ -29,8 +36,7 @@ parser.add_argument('--ijob', '-i' , type = int, help = 'condor job index (for i
 parser.add_argument('--nmax'       , default=300, type = int, help = 'condor nmax job (concurrency limits)')
 parser.add_argument('--no-condor'  , dest = "condor", action='store_false' )
 parser.add_argument('--reduction', type = int, default=1, help='reduction in hist step')
-parser.add_argument('--dag'        , action='store_true')
-#parser.add_argument('--log'        , action='store_false'     , help = 'keep logs')
+parser.add_argument('--dag'        , action='store_true', help='use condor dag')
 
 args = parser.parse_args()
 
@@ -57,6 +63,20 @@ def check_condor(clusterid,njob):
 def submit_condor(jdspath):
     clusterid=int(os.popen('condor_submit '+jdspath+'|grep -o "cluster [0-9]*"').read().split()[1])
     return clusterid
+
+def get_additional_condor_script(args,step=None):
+    rt=[]
+    if HOST=="tamsa":
+        if step=="hadd":
+            rt+=["concurrency_limits = n32.tnphadd"]
+        else:
+            rt+=["concurrency_limits = n{}.{}".format(args.nmax,os.getenv("USER"))]
+    elif HOST=="lxplus":
+        rt+=["max_retries = 2"]
+        #rt+=['requirements = ( Machine =!= LastRemoteHost ) && ( OpSysAndVer =?= "CentOS7" || OpSysAndVer =?= "AlmaLinux9" )']
+        rt+=['requirements = ( Machine =!= LastRemoteHost )']
+        rt+=['+MaxRuntime = 7200']
+    return "\n".join(rt)
 
 ####################################################################
 ##### argument handling
@@ -95,13 +115,15 @@ if hasattr(tnpConf,'OutputDir'):
 else:
     config.path="/".join([TNP_BASE,"results",os.path.basename(args.settings).split(".",1)[0],args.config])
 os.system("mkdir -p {}".format(config.path))
+config.condor_path="/".join([TNP_BASE,"condor",os.path.basename(args.settings).split(".",1)[0],args.config])
+os.system("mkdir -p {}".format(config.condor_path))
 with open(config.path+"/config.txt","w") as f:
     f.write(config.__str__())
 
 args.njob=[int(i) for i in args.njob.split(",")]
 
 if args.dag:
-    os.system("rm -r {}/condor.dag*".format(config.path))
+    os.system("rm -r {}/condor.dag*".format(config.condor_path))
 
 ####################################################################
 ##### check Bins
@@ -138,81 +160,105 @@ if "hist" in args.step:
             hist_config=hist_configs[iconf]
             print '[Histogram] Create histograms for {}'.format(hist_config[0].sample)
             jobbatchname='{}_{}_{}'.format(os.path.basename(args.settings).split(".",1)[0],args.config,hist_config[0].hist_file.split(".",1)[0])
-            working_dir="/".join([hist_config[0].path,hist_config[0].hist_file.replace(".root",".d")])
-            os.system('mkdir -p '+working_dir)
+            condor_dir="/".join([hist_config[0].condor_path,hist_config[0].hist_file.replace(".root",".d")])
+            output_dir="/".join([hist_config[0].path,hist_config[0].hist_file.replace(".root",".d")])
+            os.system('mkdir -p '+condor_dir)
+            os.system('mkdir -p '+output_dir)
 
-            open(working_dir+'/run.sh','w').write(
+            open(condor_dir+'/run.sh','w').write(
 '''#!/bin/bash
 cd $TNP_BASE
 python tnp_tamsa.py {} {} --step hist --set {} --njob {} --ijob $1 --reduction {} --no-condor
 exit $?
 '''.format(args.settings,args.config,iconf,njob,args.reduction)
             )
-            os.system("chmod +x "+working_dir+'/run.sh')
+            os.system("chmod +x "+condor_dir+'/run.sh')
 
-            open(working_dir+'/condor.jds','w').write(
-'''executable = {0}/run.sh
+            open(condor_dir+'/condor.jds','w').write(
+'''executable = {condor_dir}/run.sh
 arguments = $(Process)
-output = {0}/job$(Process).out
-error = {0}/job$(Process).err
-log = {0}/condor.log
+output = {condor_dir}/job$(Process).out
+error = {condor_dir}/job$(Process).err
+log = {condor_dir}/condor.log
 request_memory = 1500
-concurrency_limits = {1}
-jobbatchname = {2}
-getenv = True
-queue {3}
-'''.format(working_dir,"n{}.{}".format(args.nmax,os.getenv("USER")),jobbatchname,njob)
-            )
-
-            outfiles=["{}/job{}.root".format(working_dir,i) for i in range(njob)]
-
-            open(working_dir+'/hadd.jds','w').write(
-'''executable = /usr/bin/env
-arguments = hadd -j 4 -f {hadd_target} {hadd_source}
-output = {working_dir}/hadd.out
-error = {working_dir}/hadd.err
-log = {working_dir}/hadd.log
-request_cpus = 4
-request_memory = 1500
-concurrency_limits = n32.tnphadd
 jobbatchname = {name}
 getenv = True
+{additional}
+queue {njob}
+'''
+                .format(
+                    condor_dir=condor_dir,
+                    name=jobbatchname,
+                    njob=njob,
+                    additional=get_additional_condor_script(args),
+                )
+            )
+
+            outfiles=["{}/job{}.root".format(output_dir,i) for i in range(njob)]
+
+            open(condor_dir+'/hadd.sh','w').write(
+'''#!/bin/bash
+hadd -j 4 -f {hadd_target} {hadd_source} || exit $?
+python -c 'import histUtils; histUtils.postProcess("{hadd_target}")' || exit $?
+/usr/bin/rm {hadd_source} || exit $?
+'''
+                .format(
+                    hadd_target="/".join([hist_config[0].path,hist_config[0].hist_file]),
+                    hadd_source=' '.join(outfiles),
+                )
+            )
+            os.system("chmod +x "+condor_dir+'/hadd.sh')
+            
+            open(condor_dir+'/hadd.jds','w').write(
+'''executable = {condor_dir}/hadd.sh
+output = {condor_dir}/hadd.out
+error = {condor_dir}/hadd.err
+log = {condor_dir}/hadd.log
+request_cpus = 4
+request_memory = 1500
+jobbatchname = {name}
+getenv = True
+{additional}
 queue
-'''.format(hadd_target="/".join([hist_config[0].path,hist_config[0].hist_file]),
-           hadd_source=' '.join(outfiles),
-           working_dir=working_dir,
-           name=jobbatchname+"_hadd",)
+'''
+                .format(
+                    hadd_target="/".join([hist_config[0].path,hist_config[0].hist_file]),
+                    hadd_source=' '.join(outfiles),
+                    condor_dir=condor_dir,
+                    name=jobbatchname+"_hadd",
+                    additional=get_additional_condor_script(args,"hadd"),
+                )
             )
             
             if args.dag:
-                open(config.path+"/condor.dag","a").write(
+                open(config.condor_path+"/condor.dag","a").write(
 '''
 JOB {histjobname} {histjds}
 JOB {haddjobname} {haddjds}
 PARENT {histjobname} CHILD {haddjobname}
 PARENT {haddjobname} CHILD hists_done
 '''
-                    .format(histjobname=hist_config[0].hist_file.split(".",1)[0],
-                            histjds=working_dir+'/condor.jds',
-                            haddjobname=hist_config[0].hist_file.split(".",1)[0]+"_hadd",
-                            haddjds=working_dir+'/hadd.jds',
-                        )
+                    .format(
+                        histjobname=hist_config[0].hist_file.split(".",1)[0],
+                        histjds=condor_dir+'/condor.jds',
+                        haddjobname=hist_config[0].hist_file.split(".",1)[0]+"_hadd",
+                        haddjds=condor_dir+'/hadd.jds',
+                        hadd_source=' '.join(outfiles),
+                    )
                 )
             else:
-                clusterid=submit_condor(working_dir+'/condor.jds')
+                clusterid=submit_condor(condor_dir+'/condor.jds')
                 print '  Submit', njob, 'jobs. Waiting...'
-                os.system('condor_wait '+working_dir+'/condor.log > /dev/null')
+                os.system('condor_wait '+condor_dir+'/condor.log > /dev/null')
                 if not check_condor(clusterid,njob):
                     exit(1)
-                clusterid=submit_condor(working_dir+'/hadd.jds')
+                clusterid=submit_condor(condor_dir+'/hadd.jds')
                 print '  Submit hadd job. Waiting...'
-                os.system('condor_wait '+working_dir+'/hadd.log > /dev/null')
+                os.system('condor_wait '+condor_dir+'/hadd.log > /dev/null')
                 if not check_condor(clusterid,1):
                     exit(1)
-                os.system('rm {}'.format(" ".join(outfiles)))
                 if not args.log:
-                    os.system("rm -r "+working_dir)
-                histUtils.postProcess("/".join([hist_config[0].path,hist_config[0].hist_file]))
+                    os.system("rm -r "+condor_dir)
 
 ####################################################################
 ##### Actual Fitter
@@ -237,50 +283,56 @@ if "fit" in args.step:
                 for isSim in [False,True]:
                     c=configs[iset][imem].clone(isSim=isSim)
                     jobbatchname='{}_{}_{}_{}'.format(os.path.basename(args.settings).split(".",1)[0],args.config,c.fit_file.split(".",1)[0],c.name)
-                    working_dir="/".join([c.path,c.fit_file.replace(".root",".d"),c.name])
-                    os.system('mkdir -p '+working_dir)
+                    condor_dir="/".join([c.condor_path,c.fit_file.replace(".root",".d"),c.name])
+                    os.system('mkdir -p '+condor_dir)
 
-                    open(working_dir+'/run.sh','w').write(
+                    open(condor_dir+'/run.sh','w').write(
 '''#!/bin/bash
 cd $TNP_BASE
 python tnp_tamsa.py {} {} --step fit --set {} --member {} {} --bin $1 --no-condor
 exit $?
-'''.format(args.settings,args.config,iset,imem,"--sim" if isSim else "--data")
+'''
+                        .format(args.settings,args.config,iset,imem,"--sim" if isSim else "--data")
                     )
-                    os.system("chmod +x "+working_dir+'/run.sh')
+                    os.system("chmod +x "+condor_dir+'/run.sh')
                     
                     njob=min(args.njob[-1],len(c.bins))
                     condor_arguments=[",".join([str(i) for i in range(len(c.bins)) if i%njob==j]) for j in range(njob)]
-                    open(working_dir+'/condor.jds','w').write(
-'''executable = {0}/run.sh
-arguments = $(Process)
-output = {0}/job$(Process).out
-error = {0}/job$(Process).err
-log = {0}/condor.log
-concurrency_limits = {1}
-jobbatchname = {2}
+                    open(condor_dir+'/condor.jds','w').write(
+'''executable = {condor_dir}/run.sh
+output = {condor_dir}/job$(Process).out
+error = {condor_dir}/job$(Process).err
+log = {condor_dir}/condor.log
+jobbatchname = {name}
 getenv = True
+{additional}
 queue arguments from (
-{3}
+{arguments}
 )
-'''.format(working_dir,"n{}.{}".format(args.nmax,os.getenv("USER")),jobbatchname,"\n".join(condor_arguments))
+'''
+                        .format(
+                            condor_dir=condor_dir,
+                            name=jobbatchname,
+                            arguments="\n".join(condor_arguments),
+                            additional=get_additional_condor_script(args),
+                        )
                     )
                     
                     if args.dag:
-                        open(config.path+"/condor.dag","a").write(
+                        open(config.condor_path+"/condor.dag","a").write(
 '''
 JOB {jobname} {jds}
 PARENT hists_done CHILD {jobname}
 PARENT {jobname} CHILD fits_done
 '''
                             .format(jobname=c.fit_file.split(".",1)[0]+"_"+c.name,
-                                    jds=working_dir+'/condor.jds',
+                                    jds=condor_dir+'/condor.jds',
                                 )
                         )
                     else:
                         print '[Fitting] {} {}'.format(c.fit_file.split(".",1)[0],c.name)
-                        clusterid=submit_condor(working_dir+'/condor.jds')
-                        condorlogs[clusterid]=working_dir+'/condor.log'
+                        clusterid=submit_condor(condor_dir+'/condor.jds')
+                        condorlogs[clusterid]=condor_dir+'/condor.log'
         if not args.dag:
             print '  Waiting...'
             for clusterid in condorlogs:
@@ -316,13 +368,36 @@ PARENT {jobname} CHILD fits_done
 #flag.fitFile='%s/%s_fit.root' % ( outputDirectory,args.flag )
 if "sum" in args.step:
     if args.dag:
-        open(config.path+"/condor.dag","a").write(
+        jobbatchname='{}_{}_sum'.format(os.path.basename(args.settings).split(".",1)[0],args.config)
+        open(config.condor_path+"/sum.jds","w").write(
+'''executable = /usr/bin/env
+arguments = {tnp_base}/tnp_tamsa.py {configfile} {configkey} --step sum
+output = {path}/sum.out
+error = {path}/sum.err
+log = {path}/sum.log
+request_memory = 4000
+jobbatchname = {name}
+getenv = True
+{additional}
+queue
 '''
-SCRIPT POST fits_done {tnp_base}/tnp_tamsa.py {configfile} {configkey} --step sum
+            .format(
+                tnp_base=TNP_BASE,
+                configfile=args.settings,
+                configkey=args.config,
+                path=config.condor_path,
+                name=jobbatchname,
+                additional=get_additional_condor_script(args),
+            )
+        )
+        open(config.condor_path+"/condor.dag","a").write(
 '''
-            .format(tnp_base=os.environ["TNP_BASE"],
-                    configfile=args.settings,
-                    configkey=args.config)
+JOB sum {path}/sum.jds
+PARENT fits_done CHILD sum
+'''
+            .format(
+                path=config.condor_path,
+            )
         )
     else:
         from efficiencyUtils import make_combined_hist
@@ -385,17 +460,18 @@ SCRIPT POST fits_done {tnp_base}/tnp_tamsa.py {configfile} {configkey} --step su
 
 
 if args.dag:
-    open(config.path+"/condor.dag","a").write(
+    open(config.condor_path+"/condor.dag","a").write(
 '''
 JOB hists_done noop.sub NOOP
 JOB fits_done noop.sub NOOP
 '''
     )
         
-    exitcode=os.system("condor_submit_dag {}/condor.dag".format(config.path))
+    jobbatchname='{}_{}'.format(os.path.basename(args.settings).split(".",1)[0],args.config)
+    exitcode=os.system("condor_submit_dag -import_env -batch-name {name} {path}/condor.dag".format(name=jobbatchname,path=config.condor_path))
     if exitcode==0:
         print "Check dag log"
-        print "tail -f {}/condor.dag.dagman.out".format(config.path)
+        print "tail {}/condor.dag.dagman.out".format(config.condor_path)
     else:
         print "condor_submit_dag failed"
 

@@ -107,7 +107,22 @@ def makePassFailHistograms( configs, njob, ijob, reduction=1 ):
     # Read in Tag and Probe Ntuples
     ###############################
     tree = ROOT.TChain(configs[0].tree)
-    if os.path.isdir(configs[0].sample):
+    if os.path.exists(configs[0].sample):
+        realpath=os.path.realpath(configs[0].sample)
+        if realpath.startswith("/eos/home-"):
+            configs[0].sample="root://eosuser.cern.ch/"+realpath.replace("/eos/home-","/eos/user/")
+        elif realpath.startswith("/eos/user"):
+            configs[0].sample="root://eosuser.cern.ch/"+realpath
+        elif realpath.startswith("/eos/cms"):
+            configs[0].sample="root://eoscms.cern.ch/"+realpath
+            
+    if configs[0].sample.startswith("root://"):
+        index=configs[0].sample.index("/",7)
+        host=configs[0].sample[:index]
+        path=configs[0].sample[index:]
+        rootfiles=os.popen('xrdfs {host} ls -u -R {path}'.format(host=host,path=path)).read().split()
+        rootfiles=[rootfile for rootfile in rootfiles if rootfile.endswith(".root")]
+    elif os.path.isdir(configs[0].sample):
         rootfiles=os.popen('find '+configs[0].sample+' -type f -name \'*.root\' | sort -V').read().split()
     elif os.path.isfile(configs[0].sample):
         rootfiles=[configs[0].sample]
@@ -280,7 +295,9 @@ def makePassFailHistograms( configs, njob, ijob, reduction=1 ):
         if not outfile.GetDirectory(dirname):
             outfile.mkdir(dirname)
         outfile.cd(dirname)
-        hist.Write(basename)
+        if hist.Write(basename)==0:
+            print "Fail to write",hist.GetName()
+            exit(1)
     te=time.time()
     print "Writing time", te-ts, "seconds"
     sys.stdout.flush()

@@ -1,5 +1,7 @@
 *~
 *.pyc
 results/
+results
 compare/
 release/
+condor/

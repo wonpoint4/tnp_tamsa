@@ -263,8 +263,13 @@ class tnpFitter(object):
         plotFail.Draw();
 
         fpath="/".join([config.path,config.fit_file.replace(".root",".d"),config.name,"bin{}.root".format(ibin)])
-        os.system("mkdir -p "+os.path.dirname(fpath))
+        if os.system("mkdir -p "+os.path.dirname(fpath))!=0:
+            print "Cannot make",os.path.dirname(fpath)
+            exit(1)
         fout=rt.TFile(fpath,"recreate")
+        if not fout.IsWritable():
+            print "Cannot write",fpath
+            exit(1)
         fout.mkdir(config.name)
         fout.cd(config.name)
         c.Write("{}_Canv".format(binname))
@@ -274,7 +279,9 @@ class tnpFitter(object):
         fout.Close()
 
         plotpath="/".join([config.path,"plots","sim" if config.isSim else "data",config.name])
-        os.system("mkdir -p "+plotpath)
+        if os.system("mkdir -p "+plotpath)!=0:
+            print "Cannot make",plotpath
+            exit(1)            
         c.SaveAs("{}/{}.png".format(plotpath,binname))
 
         return
