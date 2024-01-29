@@ -264,7 +264,7 @@ def makePassFailHistograms( configs, njob, ijob, reduction=1 ):
             if not expr: continue
             vals=[]
             for ia in range(len(configs[ic].axes)):
-                vals+=[getattr(tree,configs[ic].axes[ia]['var'])]
+                vals+=[getattr(tree,configs[ic].axes[ia]['var'].replace('fabs(','').replace(')',''))]
             ib=configs[ic].find_bin(vals)
             if ib is None: continue
             for ih in range(len(hists[ic][ib])):
