@@ -1,10 +1,19 @@
-## Quick start
+# Lepton Tag&Probe Tool
+[**Talk**](https://indico.cern.ch/event/1355810/contributions/5710591/attachments/2774280/4834606/231218_newTnP_MuonPOG_wonjun.pdf) in MuonPOG
 
+## Quick Start in lxplus
 ```
+git clone -b tutorial_2024 https://github.com/wonpoint4/tnp_tamsa.git
+cd tnp_tamsa
 source setup.sh
 # python tnp_tamsa.py CONFIG_FILE CONFIG_KEY
-python tnp_tamsa.py config/AFBMuon_v15.py 2018_MediumID_LooseTrkIso
+python tnp_tamsa.py config/POGMuon.py 2023preBPix_IsoMu24 --reduction 5
 ```
+
+## The Goal of this Tutorial
+Please measure efficiency of high-pt muon trigger up to 1 GeV using the full statistics of data/MC in the 2022postEE era.
+In order to get enough statistics, you may need to 'count' over wide mass ranges. (e.g. 70~1000 GeV)
+You can edit the config file. (e.g. config/POGMuon.py)
 
 ## Configuration
 In the config file, you should define a dictionary called 'Configs' as below. See more examples in `config` directory.
