@@ -1,19 +1,23 @@
 from tnpConfig import tnpConfig
 
 ############## samples ################
-"""
-muondir = '/eos/cms/store/group/phys_muon/sblancof/TnP_ntuples/muon/Z/Run2023/MINIAOD/'
+muondir = '/eos/cms/store/group/phys_muon/wjun/Run3_POGntuples_won/'
 samples={
-    'data2023' : muondir+'Muon0/crab_TnP_ntuplizer_muon_Z_Run2023_MINIAOD_Run2023D_M0/231031_112544/',
-    'amc2023'  : muondir+'DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/crab_TnP_ntuplizer_muon_Z_Run2023_MINIAOD_DY_amcatnlo/231219_161600/',
-    'mg2023'   : muondir+'DYto2L-4Jets_MLL-50_TuneCP5_13p6TeV_madgraphMLM-pythia8/crab_TnP_ntuplizer_muon_Z_Run2023_MINIAOD_DY_madgraph/231219_161504/',
-}
-"""
-muondir = '/eos/cms/store/group/phys_muon/wjun/small_POGntuples/'
-samples={
-    'data2023' : muondir+'data/',
-    'amc2023'  : muondir+'amc/',
-    'mg2023'   : muondir+'mg/',
+    'data2022preEE' : muondir+'data_2022preEE/',
+    'amc2022preEE'  : muondir+'amc_2022preEE/',
+    'mg2022preEE'   : muondir+'mg_2022preEE/',
+
+    'data2022postEE' : muondir+'data_2022postEE/',
+    'amc2022postEE'  : muondir+'amc_2022postEE/',
+    'mg2022postEE'   : muondir+'mg_2022postEE/',
+
+    'data2023preBPix' : muondir+'data_2023preBPix/',
+    'amc2023preBPix'  : muondir+'amc_2023preBPix/',
+    'mg2023preBPix'   : muondir+'mg_2023preBPix/',
+
+    'data2023postBPix' : muondir+'data_2023postBPix/',
+    'amc2023postBPix'  : muondir+'amc_2023postBPix/',
+    'mg2023postBPix'   : muondir+'mg_2023postBPix/',
 }
 
 ############## binning ################
@@ -75,8 +79,8 @@ fit_altbkg = [
 ############## Configs ################
 ### ID                                                                                                                                                   
 config_id=tnpConfig(
-    data=samples['data2023'],
-    sim=samples['amc2023'],
+    data=samples['data2022preEE'],
+    sim=samples['amc2022preEE'],
     sim_weight='(genWeight)',
     sim_maxweight=10000.,
     sim_genmatching='tag_isMatchedGen && probe_isMatchedGen',
@@ -95,7 +99,6 @@ config_id=tnpConfig(
     systematic=[
         [{'title':'altsig','fit_parameter':fit_altsig}],
         [{'title':'altbkg','fit_parameter':fit_altbkg}],
-        #[{'title':'altMC', 'sim.replace':[('2Jets','4Jets'),('amcatnlo','madgraph'),('FXFX','MLM'),('231219_161600','231219_161504')]}],
         [{'title':'altMC', 'sim.replace':[('amc','mg')]}],
         [{'title':'tagiso010','expr.replace':(tag_PFIso+' < 0.15',tag_PFIso+' < 0.10')},
          {'title':'tagiso020','expr.replace':(tag_PFIso+' < 0.15',tag_PFIso+' < 0.20')}],
@@ -130,26 +133,65 @@ config_Mu50=config_IsoMu24.clone(
 ############## Configs ################
 Configs={}
 
+## 2022 preEE - BCD
+Configs["2022preEE_ID"]=config_id.clone()
+Configs["2022preEE_ISO"]=config_iso.clone()
+Configs["2022preEE_IsoMu24"]=config_IsoMu24.clone()
+Configs["2022preEE_Mu50"]=config_Mu50.clone()
+
+## 2022 postEE - EFG
+Configs["2022postEE_ID"]=config_id.clone(
+    data=samples['data2022postEE'],
+    sim=samples['amc2022postEE'],
+)
+Configs["2022postEE_ISO"]=config_iso.clone(
+    data=samples['data2022postEE'],
+    sim=samples['amc2022postEE'],
+)
+Configs["2022postEE_IsoMu24"]=config_IsoMu24.clone(
+    data=samples['data2022postEE'],
+    sim=samples['amc2022postEE'],
+)
+Configs["2022postEE_Mu50"]=config_Mu50.clone(
+    data=samples['data2022postEE'],
+    sim=samples['amc2022postEE'],
+)
+
+## 2023 preBPix - BC
 Configs["2023preBPix_ID"]=config_id.clone(
-    data=samples['data2023'],
-    sim=samples['amc2023'],
+    data=samples['data2023preBPix'],
+    sim=samples['amc2023preBPix'],
 )
-
 Configs["2023preBPix_ISO"]=config_iso.clone(
-    data=samples['data2023'],
-    sim=samples['amc2023'],
+    data=samples['data2023preBPix'],
+    sim=samples['amc2023preBPix'],
 )
-
 Configs["2023preBPix_IsoMu24"]=config_IsoMu24.clone(
-    data=samples['data2023'],
-    sim=samples['amc2023'],
+    data=samples['data2023preBPix'],
+    sim=samples['amc2023preBPix'],
 )
-
 Configs["2023preBPix_Mu50"]=config_Mu50.clone(
-    data=samples['data2023'],
-    sim=samples['amc2023'],
+    data=samples['data2023preBPix'],
+    sim=samples['amc2023preBPix'],
 )
 
+## 2023 postBPix - D
+Configs["2023postBPix_ID"]=config_id.clone(
+    data=samples['data2023postBPix'],
+    sim=samples['amc2023postBPix'],
+)
+Configs["2023postBPix_ISO"]=config_iso.clone(
+    data=samples['data2023postBPix'],
+    sim=samples['amc2023postBPix'],
+)
+Configs["2023postBPix_IsoMu24"]=config_IsoMu24.clone(
+    data=samples['data2023postBPix'],
+    sim=samples['amc2023postBPix'],
+)
+Configs["2023postBPix_Mu50"]=config_Mu50.clone(
+    data=samples['data2023postBPix'],
+    sim=samples['amc2023postBPix'],
+)
 
 if __name__=="__main__":
     for key in sorted(Configs.keys()):
