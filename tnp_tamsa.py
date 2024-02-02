@@ -155,6 +155,7 @@ if "hist" in args.step:
     if args.condor==False:
         histUtils.makePassFailHistograms( hist_configs[args.set], njob, args.ijob, args.reduction)
     elif args.condor==True:
+        condordirs={}
         for iconf in range(len(hist_configs)):
             if args.set!=None and args.set!=iconf: continue
             hist_config=hist_configs[iconf]
@@ -248,17 +249,31 @@ PARENT {haddjobname} CHILD hists_done
                 )
             else:
                 clusterid=submit_condor(condor_dir+'/condor.jds')
-                print '  Submit', njob, 'jobs. Waiting...'
+                print '  Submit', njob, 'hist jobs.'
+                condordirs[condor_dir]={'clusterid':clusterid}
+
+        if not args.dag:
+            print '  Waiting...'
+            for condor_dir in condordirs:
                 os.system('condor_wait '+condor_dir+'/condor.log > /dev/null')
+                clusterid=condordirs[condor_dir]['clusterid']
                 if not check_condor(clusterid,njob):
                     exit(1)
-                clusterid=submit_condor(condor_dir+'/hadd.jds')
-                print '  Submit hadd job. Waiting...'
+
+            for condor_dir in condordirs:
+                haddid=submit_condor(condor_dir+'/hadd.jds')
+                print '[Histogram] Submit hadd job.'
+                condordirs[condor_dir]['haddid']=haddid
+
+            print '  Waiting...'
+            for condor_dir in condordirs:
                 os.system('condor_wait '+condor_dir+'/hadd.log > /dev/null')
-                if not check_condor(clusterid,1):
+                haddid=condordirs[condor_dir]['haddid']
+                if not check_condor(haddid,1):
                     exit(1)
                 if not args.log:
                     os.system("rm -r "+condor_dir)
+            
 
 ####################################################################
 ##### Actual Fitter
