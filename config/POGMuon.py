@@ -89,7 +89,7 @@ config_id=tnpConfig(
     mass="pair_mass",
     bins=binnings['ID'],
     preselection='probe_isTracker',
-    expr='tag_HLT_IsoMu24_v && tag_pt > 26 && tag_isTight && '+tag_PFIso+' < 0.15 && tag_charge*probe_charge < 0 && probe_isTracker && pair_dR > 0.3',
+    expr='tag_HLT_IsoMu24_v && tag_pt > 26 && tag_isTight && '+tag_PFIso+' < 0.15 && tag_charge*probe_charge < 0 && pair_dR > 0.3',
     test='probe_isTight',
     hist_nbins=60,
     hist_range=(70,130),
@@ -112,21 +112,22 @@ config_id=tnpConfig(
 ### ISO
 config_iso=config_id.clone(
     preselection='probe_isTight',
-    expr='tag_HLT_IsoMu24_v && tag_pt > 26 && tag_isTight && '+tag_PFIso+' < 0.15 && tag_charge*probe_charge < 0 && probe_isTight && pair_dR > 0.3',
-    test=probe_PFIso+' < 0.15',
+    expr='tag_HLT_IsoMu24_v && tag_pt > 26 && tag_isTight && '+tag_PFIso+' < 0.15 && tag_charge*probe_charge < 0 && pair_dR > 0.3',
+    test='probe_PFIsoTight',
 )
 
 ### IsoMu24
 config_IsoMu24=config_id.clone(
     bins=binnings['IsoMu24'],
-    preselection='probe_isTight && '+probe_PFIso+' < 0.15',
-    expr='tag_HLT_IsoMu24_v && tag_pt > 26 && tag_isTight && '+tag_PFIso+' < 0.15 && tag_charge*probe_charge < 0 && probe_isTight && pair_dR > 0.3',
+    preselection='probe_isTight && probe_PFIsoTight',
+    expr='tag_HLT_IsoMu24_v && tag_pt > 26 && tag_isTight && '+tag_PFIso+' < 0.15 && tag_charge*probe_charge < 0 && pair_dR > 0.3',
     test='probe_HLT_IsoMu24_v',
 )
 
 ### Mu50s
 config_Mu50=config_IsoMu24.clone(
     bins=binnings['Mu50'],
+    preselection='probe_isHighPt && probe_TkIsoLoose',
     test='probe_HLT_Mu50_v || probe_HLT_CascadeMu100_v || probe_HLT_HighPtTkMu100_v',
 )
 
